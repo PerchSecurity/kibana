@@ -4,10 +4,10 @@ import Promise from 'bluebird';
 import { mkdirp as mkdirpNode } from 'mkdirp';
 
 import manageUuid from './server/lib/manage_uuid';
-import ingest from './server/routes/api/ingest';
+//import ingest from './server/routes/api/ingest';
 import search from './server/routes/api/search';
-import settings from './server/routes/api/settings';
-import scripts from './server/routes/api/scripts';
+//import settings from './server/routes/api/settings';
+//import scripts from './server/routes/api/scripts';
 import * as systemApi from './server/lib/system_api';
 
 const mkdirp = Promise.promisify(mkdirpNode);
@@ -73,7 +73,9 @@ module.exports = function (kibana) {
           url: `${kbnBaseUrl}#/discover`,
           description: 'interactively explore your data',
           icon: 'plugins/kibana/assets/discover.svg',
-        }, {
+        },
+        /* Comment out modules we don't want for perch use
+        {
           id: 'kibana:visualize',
           title: 'Visualize',
           order: -1002,
@@ -109,6 +111,7 @@ module.exports = function (kibana) {
           icon: 'plugins/kibana/assets/settings.svg',
           linkToLastSubUrl: false
         },
+        */
       ],
 
       injectDefaultVars(server, options) {
@@ -139,10 +142,10 @@ module.exports = function (kibana) {
       // uuid
       manageUuid(server);
       // routes
-      ingest(server);
+      //ingest(server);
       search(server);
-      settings(server);
-      scripts(server);
+      //settings(server);
+      //scripts(server);
       server.expose('systemApi', systemApi);
     }
   });
