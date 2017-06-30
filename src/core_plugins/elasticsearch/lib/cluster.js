@@ -77,6 +77,7 @@ export class Cluster {
 function callAPI(client, endpoint, clientParams = {}, options = {}) {
   const wrap401Errors = options.wrap401Errors !== false;
   const clientPath = toPath(endpoint);
+  console.log(clientPath);
   const api = get(client, clientPath);
 
   let apiContext = get(client, clientPath.slice(0, -1));
@@ -87,6 +88,14 @@ function callAPI(client, endpoint, clientParams = {}, options = {}) {
   if (!api) {
     throw new Error(`called with an invalid endpoint: ${endpoint}`);
   }
+
+  /*
+  if (clientPath.indexOf('mget') >= 0) {
+    console.log(endpoint);
+    console.log(clientPath);
+    console.log(apiContext);
+  }
+  */
 
   return api.call(apiContext, clientParams).catch((err) => {
     if (!wrap401Errors || err.statusCode !== 401) {
