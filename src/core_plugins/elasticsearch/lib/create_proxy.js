@@ -43,20 +43,6 @@ function createProxy(server, method, path, config) {
           onResponse: responseHandler
         }
       },
-      /*
-      handler(req, reply) {
-        console.log('PROXY HIT');
-        console.log(req.method);
-        console.log(path);
-        console.log(req.path);
-        console.log(req.payload);
-        console.log(proxyPrefix);
-        cluster.callWithRequest(req, 'search').then(response => {
-          console.log(response);
-          reply(response);
-        });
-      }
-      */
     };
 
     assign(options.config, config);
