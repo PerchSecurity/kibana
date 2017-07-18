@@ -53,6 +53,7 @@
     "build": "grunt build",
     "release": "grunt release",
     "start": "sh ./bin/kibana --dev",
+    "start_prod": "sh ./bin/kibana",
     "precommit": "grunt precommit",
     "karma": "karma start",
     "elasticsearch": "grunt esvm:dev:keepalive",
