@@ -11,6 +11,10 @@ import {
 } from './server';
 
 export default function (kibana) {
+
+  // PERCH: EARLY RETURN, ENSURE RESTRICTED
+  return;
+
   const modules = resolve(__dirname, 'public/webpackShims/');
   const src = resolve(__dirname, 'public/src/');
 

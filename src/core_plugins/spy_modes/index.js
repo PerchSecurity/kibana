@@ -1,4 +1,8 @@
 export default function (kibana) {
+
+  // PERCH: EARLY RETURN, ENSURE RESTRICTED
+  return;
+
   return new kibana.Plugin({
     uiExports: {
       spyModes: [

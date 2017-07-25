@@ -3,7 +3,7 @@ import { resolve } from 'path';
 import Promise from 'bluebird';
 import { mkdirp as mkdirpNode } from 'mkdirp';
 
-import manageUuid from './server/lib/manage_uuid';
+//import manageUuid from './server/lib/manage_uuid';
 //import ingest from './server/routes/api/ingest';
 import search from './server/routes/api/search';
 //import settings from './server/routes/api/settings';
@@ -144,7 +144,7 @@ module.exports = function (kibana) {
 
     init: function (server) {
       // uuid
-      manageUuid(server);
+      //manageUuid(server);
       // routes
       //ingest(server);
       search(server);

@@ -124,9 +124,9 @@ module.exports = function ({ Plugin }) {
       createProxy(server, 'GET', '/{paths*}');
       createProxy(server, 'POST', '/_mget');
       createProxy(server, 'POST', '/{index}/_search');
-      createProxy(server, 'POST', '/{index}/_field_stats');
+      //createProxy(server, 'POST', '/{index}/_field_stats');
       createProxy(server, 'POST', '/_msearch');
-      createProxy(server, 'POST', '/_search/scroll');
+      //createProxy(server, 'POST', '/_search/scroll');
 
       function noBulkCheck({ path }, reply) {
         if (/\/_bulk/.test(path)) {
@@ -155,7 +155,8 @@ module.exports = function ({ Plugin }) {
       // destroying the kibana index, so we limit that ability here.
       createProxy(
         server,
-        ['PUT', 'POST', 'DELETE'],
+        //['PUT', 'POST', 'DELETE'],
+        ['POST'],
         `/${kibanaIndex}/{paths*}`,
         {
           pre: [ noDirectIndex, noBulkCheck ]
