@@ -2,6 +2,10 @@ import fieldsRoutes from './server/routes/fields';
 import visDataRoutes from './server/routes/vis';
 
 export default function (kibana) {
+
+  // PERCH: EARLY RETURN, ENSURE RESTRICTED
+  return;
+
   return new kibana.Plugin({
     require: ['kibana','elasticsearch'],
 

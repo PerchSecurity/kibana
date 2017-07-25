@@ -1,5 +1,8 @@
 
 module.exports = function (kibana) {
+  // PERCH: EARLY RETURN, ENSURE RESTRICTED
+  return;
+
   let mainFile = 'plugins/timelion/app';
 
   const ownDescriptor = Object.getOwnPropertyDescriptor(kibana, 'autoload');
