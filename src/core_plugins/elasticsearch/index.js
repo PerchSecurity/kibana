@@ -124,7 +124,7 @@ module.exports = function ({ Plugin }) {
       createProxy(server, 'GET', '/{paths*}');
       createProxy(server, 'POST', '/_mget');
       createProxy(server, 'POST', '/{index}/_search');
-      //createProxy(server, 'POST', '/{index}/_field_stats');
+      createProxy(server, 'POST', '/{index}/_field_stats');
       createProxy(server, 'POST', '/_msearch');
       //createProxy(server, 'POST', '/_search/scroll');
 
