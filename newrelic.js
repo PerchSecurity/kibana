@@ -1,5 +1,7 @@
 'use strict'
-import _ from 'lodash';
+var _ = require('lodash');
+
+var appEnv = _.get(process.env, 'APP_ENV', 'DEV');
 
 /**
  * This file includes all of the configuration variables used by the Node.js
@@ -108,7 +110,7 @@ exports.config = {
    *
    * @env NEW_RELIC_ENABLED
    */
-  agent_enabled: (_.get(process.env, 'APP_ENV', 'DEV') === 'PROD'),
+  agent_enabled: (appEnv === 'PROD'),
   /**
    * The default Apdex tolerating / threshold value for applications, in
    * seconds. The default for Node is apdexT to 100 milliseconds, which is
@@ -161,7 +163,7 @@ exports.config = {
      *
      * @env NEW_RELIC_LOG_ENABLED
      */
-    enabled: true,
+    enabled: (appEnv !== 'DEV'),
 
     /**
      * Enables extra debugging at `warn` level. No need to enable except under
