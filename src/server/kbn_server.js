@@ -1,4 +1,3 @@
-require('newrelic');
 import { constant, once, compact, flatten } from 'lodash';
 import { resolve, fromNode } from 'bluebird';
 import { isWorker } from 'cluster';

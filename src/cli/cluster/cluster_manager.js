@@ -1,3 +1,4 @@
+require('newrelic');
 import { resolve } from 'path';
 import { debounce, invoke, bindAll, once, uniq } from 'lodash';
 
