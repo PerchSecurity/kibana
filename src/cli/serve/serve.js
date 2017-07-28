@@ -1,3 +1,4 @@
+require('newrelic');
 import _ from 'lodash';
 import { statSync } from 'fs';
 import { isWorker } from 'cluster';
