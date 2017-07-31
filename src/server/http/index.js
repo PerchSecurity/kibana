@@ -1,4 +1,3 @@
-require('newrelic');
 import { format } from 'url';
 import { resolve } from 'path';
 import _ from 'lodash';
