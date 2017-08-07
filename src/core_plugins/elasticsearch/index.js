@@ -156,7 +156,7 @@ module.exports = function ({ Plugin }) {
       createProxy(
         server,
         //['PUT', 'POST', 'DELETE'],
-        ['POST'],
+        ['POST', 'DELETE'],
         `/${kibanaIndex}/{paths*}`,
         {
           pre: [ noDirectIndex, noBulkCheck ]
