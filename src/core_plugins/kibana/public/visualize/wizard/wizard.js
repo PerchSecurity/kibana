@@ -5,14 +5,15 @@ import 'plugins/kibana/discover/saved_searches/saved_searches';
 import './wizard.less';
 
 import _ from 'lodash';
-import VisVisTypeProvider from 'ui/vis/vis_type';
+import { VisVisTypeProvider } from 'ui/vis/vis_type';
 import { DashboardConstants } from 'plugins/kibana/dashboard/dashboard_constants';
 import { VisualizeConstants } from '../visualize_constants';
 import routes from 'ui/routes';
-import RegistryVisTypesProvider from 'ui/registry/vis_types';
-import uiModules from 'ui/modules';
+import { VisTypesRegistryProvider } from 'ui/registry/vis_types';
+import { uiModules } from 'ui/modules';
 import visualizeWizardStep1Template from './step_1.html';
 import visualizeWizardStep2Template from './step_2.html';
+import { SavedObjectsClientProvider } from 'ui/saved_objects';
 
 const module = uiModules.get('app/visualize', ['kibana/courier']);
 
@@ -47,7 +48,7 @@ module.controller('VisualizeWizardStep1', function ($scope, $route, kbnUrl, time
   const addToDashMode = $route.current.params[DashboardConstants.ADD_VISUALIZATION_TO_DASHBOARD_MODE_PARAM];
   kbnUrl.removeParam(DashboardConstants.ADD_VISUALIZATION_TO_DASHBOARD_MODE_PARAM);
 
-  const visTypes = Private(RegistryVisTypesProvider);
+  const visTypes = Private(VisTypesRegistryProvider);
 
   const categoryToVisTypesMap = {};
 
@@ -166,8 +167,14 @@ routes.when(VisualizeConstants.WIZARD_STEP_2_PAGE_PATH, {
   template: visualizeWizardStep2Template,
   controller: 'VisualizeWizardStep2',
   resolve: {
-    indexPatternIds: function (courier) {
-      return courier.indexPatterns.getIds();
+    indexPatterns: function (Private) {
+      const savedObjectsClient = Private(SavedObjectsClientProvider);
+
+      return savedObjectsClient.find({
+        type: 'index-pattern',
+        fields: ['title'],
+        perPage: 10000
+      }).then(response => response.savedObjects);
     }
   }
 });
@@ -197,7 +204,7 @@ module.controller('VisualizeWizardStep2', function ($route, $scope, timefilter, 
 
   $scope.indexPattern = {
     selection: null,
-    list: $route.current.locals.indexPatternIds
+    list: $route.current.locals.indexPatterns
   };
 
   $scope.makeUrl = function (pattern) {
@@ -206,9 +213,9 @@ module.controller('VisualizeWizardStep2', function ($route, $scope, timefilter, 
     if (addToDashMode) {
       return `#${VisualizeConstants.CREATE_PATH}` +
         `?${DashboardConstants.ADD_VISUALIZATION_TO_DASHBOARD_MODE_PARAM}` +
-        `&type=${type}&indexPattern=${pattern}`;
+        `&type=${type}&indexPattern=${pattern.id}`;
     }
 
-    return `#${VisualizeConstants.CREATE_PATH}?type=${type}&indexPattern=${pattern}`;
+    return `#${VisualizeConstants.CREATE_PATH}?type=${type}&indexPattern=${pattern.id}`;
   };
 });

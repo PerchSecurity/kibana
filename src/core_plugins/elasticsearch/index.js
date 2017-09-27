@@ -14,10 +14,9 @@ import { createProxy, createPath, proxyHandler } from './lib/perch_create_proxy'
 
 const DEFAULT_REQUEST_HEADERS = [ 'authorization' ];
 
-module.exports = function ({ Plugin }) {
-  return new Plugin({
+module.exports = function (kibana) {
+  return new kibana.Plugin({
     require: ['kibana'],
-
     config(Joi) {
       const { array, boolean, number, object, string, ref } = Joi;
 
@@ -162,9 +161,9 @@ module.exports = function ({ Plugin }) {
           pre: [ noDirectIndex, noBulkCheck ]
         }
       );
-
       // Set up the health check service and start it.
-      const { start, waitUntilReady } = healthCheck(this, server);
+      const mappings = kibana.uiExports.mappings.getCombined();
+      const { start, waitUntilReady } = healthCheck(this, server, { mappings });
       server.expose('waitUntilReady', waitUntilReady);
       start();
     }

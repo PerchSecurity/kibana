@@ -1,5 +1,5 @@
 import _ from 'lodash';
-import uiModules from 'ui/modules';
+import { uiModules } from 'ui/modules';
 /**
  * # `Private()`
  * Private module loader, used to merge angular and require js dependency styles
@@ -93,7 +93,7 @@ function name(fn) {
   return fn.name || fn.toString().split('\n').shift();
 }
 
-uiModules.get('kibana')
+uiModules.get('kibana/private')
 .provider('Private', function () {
   const provider = this;
 

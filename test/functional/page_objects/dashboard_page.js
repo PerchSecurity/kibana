@@ -21,13 +21,13 @@ export function DashboardPageProvider({ getService, getPageObjects }) {
   class DashboardPage {
     async initTests() {
       const logstash = esArchiver.loadIfNeeded('logstash_functional');
+
+      log.debug('load kibana index with visualizations');
+      await esArchiver.load('dashboard');
       await kibanaServer.uiSettings.replace({
         'dateFormat:tz':'UTC',
         'defaultIndex':'logstash-*'
       });
-
-      log.debug('load kibana index with visualizations');
-      await esArchiver.load('dashboard');
 
       await PageObjects.common.navigateToApp('dashboard');
       return logstash;
@@ -54,7 +54,8 @@ export function DashboardPageProvider({ getService, getPageObjects }) {
       if (!onPage) {
         await retry.try(async () => {
           await this.clickDashboardBreadcrumbLink();
-          await testSubjects.find('searchFilter');
+          const onDashboardLandingPage = await this.onDashboardLandingPage();
+          if (!onDashboardLandingPage) throw new Error('Not on the landing page.');
         });
       }
     }
@@ -74,6 +75,25 @@ export function DashboardPageProvider({ getService, getPageObjects }) {
       return testSubjects.click('dashboardQueryFilterButton');
     }
 
+    async clickClone() {
+      log.debug('Clicking clone');
+      await testSubjects.click('dashboardClone');
+    }
+
+    async confirmClone() {
+      log.debug('Confirming clone');
+      await testSubjects.click('cloneConfirmButton');
+    }
+
+    async cancelClone() {
+      log.debug('Canceling clone');
+      await testSubjects.click('cloneCancelButton');
+    }
+
+    async setClonedDashboardTitle(title) {
+      await testSubjects.setValue('clonedDashboardTitle', title);
+    }
+
     clickEdit() {
       log.debug('Clicking edit');
       return testSubjects.click('dashboardEditMode');
@@ -91,6 +111,22 @@ export function DashboardPageProvider({ getService, getPageObjects }) {
 
     clickNewDashboard() {
       return testSubjects.click('newDashboardLink');
+    }
+
+    async clickCreateDashboardPrompt() {
+      await retry.try(() => testSubjects.click('createDashboardPromptButton'));
+    }
+
+    async getCreateDashboardPromptExists() {
+      return await testSubjects.exists('createDashboardPromptButton');
+    }
+
+    async clickListItemCheckbox() {
+      await testSubjects.click('dashboardListItemCheckbox');
+    }
+
+    async clickDeleteSelectedDashboards() {
+      await testSubjects.click('deleteSelectedDashboards');
     }
 
     clickAddVisualization() {
@@ -135,9 +171,9 @@ export function DashboardPageProvider({ getService, getPageObjects }) {
 
     filterVizNames(vizName) {
       return retry.try(() => getRemote()
-      .findByCssSelector('input[placeholder="Visualizations Filter..."]')
-      .click()
-      .pressKeys(vizName));
+        .findByCssSelector('input[placeholder="Visualizations Filter..."]')
+        .click()
+        .pressKeys(vizName));
     }
 
     clickVizNameLink(vizName) {
@@ -208,7 +244,7 @@ export function DashboardPageProvider({ getService, getPageObjects }) {
      * @param saveOptions {{storeTimeWithDashboard: boolean, saveAsNew: boolean}}
      */
     async enterDashboardTitleAndClickSave(dashboardTitle, saveOptions = {}) {
-      await testSubjects.click('dashboardSaveButton');
+      await testSubjects.click('dashboardSaveMenuItem');
 
       await PageObjects.header.waitUntilLoadingHasFinished();
 
@@ -225,7 +261,7 @@ export function DashboardPageProvider({ getService, getPageObjects }) {
 
       await retry.try(() => {
         log.debug('clicking final Save button for named dashboard');
-        return getRemote().findByCssSelector('.btn-primary').click();
+        return testSubjects.click('confirmSaveDashboardButton');
       });
     }
 
@@ -235,6 +271,17 @@ export function DashboardPageProvider({ getService, getPageObjects }) {
       .click();
     }
 
+    async clearSearchValue() {
+      log.debug(`clearSearchValue`);
+
+      await this.gotoDashboardLandingPage();
+
+      await retry.try(async () => {
+        const searchFilter = await testSubjects.find('searchFilter');
+        await searchFilter.clearValue();
+      });
+    }
+
     async searchForDashboardWithName(dashName) {
       log.debug(`searchForDashboardWithName: ${dashName}`);
 
@@ -242,12 +289,18 @@ export function DashboardPageProvider({ getService, getPageObjects }) {
 
       await retry.try(async () => {
         const searchFilter = await testSubjects.find('searchFilter');
+        await searchFilter.clearValue();
         await searchFilter.click();
         // Note: this replacement of - to space is to preserve original logic but I'm not sure why or if it's needed.
         await searchFilter.type(dashName.replace('-',' '));
       });
 
       await PageObjects.header.waitUntilLoadingHasFinished();
+    }
+
+    async getCountOfDashboardsInListingTable() {
+      const dashboardTitles = await testSubjects.findAll('dashboardListingTitleLink');
+      return dashboardTitles.length;
     }
 
     async getDashboardCountWithName(dashName) {
@@ -270,12 +323,11 @@ export function DashboardPageProvider({ getService, getPageObjects }) {
 
     getPanelTitles() {
       log.debug('in getPanelTitles');
-      return getRemote()
-      .findAllByCssSelector('span.panel-title')
+      return testSubjects.findAll('dashboardPanelTitle')
       .then(function (titleObjects) {
 
         function getTitles(chart) {
-          return chart.getAttribute('title');
+          return chart.getVisibleText();
         }
 
         const getTitlePromises = titleObjects.map(getTitles);
@@ -286,7 +338,7 @@ export function DashboardPageProvider({ getService, getPageObjects }) {
     getPanelSizeData() {
       log.debug('in getPanelSizeData');
       return getRemote()
-      .findAllByCssSelector('li.gs-w')
+      .findAllByCssSelector('li.gs-w') // These are gridster-defined elements and classes
       .then(function (titleObjects) {
 
         function getTitles(chart) {
@@ -318,9 +370,9 @@ export function DashboardPageProvider({ getService, getPageObjects }) {
             });
           })
           .then(chart => {
-            return chart.findByCssSelector('span.panel-title')
+            return chart.findByCssSelector('[data-test-subj="dashboardPanelTitle"]')
             .then(function (titleElement) {
-              return titleElement.getAttribute('title');
+              return titleElement.getVisibleText();
             })
             .then(theData => {
               obj.title = theData;

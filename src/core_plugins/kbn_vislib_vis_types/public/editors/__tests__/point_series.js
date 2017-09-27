@@ -5,8 +5,8 @@ import ngMock from 'ng_mock';
 import $ from 'jquery';
 import FixturesStubbedLogstashIndexPatternProvider from 'fixtures/stubbed_logstash_index_pattern';
 import LineVisTypeProvider from 'plugins/kbn_vislib_vis_types/line';
-import VisProvider from 'ui/vis';
-import AggConfigProvider from 'ui/vis/agg_config';
+import { VisProvider } from 'ui/vis';
+import { VisAggConfigProvider } from 'ui/vis/agg_config';
 
 describe('point series editor', function () {
   let $parentScope;
@@ -31,7 +31,7 @@ describe('point series editor', function () {
 
   beforeEach(ngMock.module('kibana'));
   beforeEach(ngMock.inject(function ($rootScope, $compile, Private) {
-    AggConfig = Private(AggConfigProvider);
+    AggConfig = Private(VisAggConfigProvider);
     lineVisType = Private(LineVisTypeProvider);
     Vis = Private(VisProvider);
     indexPattern = Private(FixturesStubbedLogstashIndexPatternProvider);
@@ -103,5 +103,16 @@ describe('point series editor', function () {
   it('should not allow to remove the last value axis', function () {
     $parentScope.removeValueAxis({ id: 'ValueAxis-1' });
     expect($parentScope.vis.params.valueAxes.length).to.be(1);
+  });
+
+  it('should set the value axis title if its not set', function () {
+    $parentScope.updateAxisTitle();
+    expect($parentScope.vis.params.valueAxes[0].title.text).to.equal('Count');
+  });
+
+  it('should not update the value axis title if custom title was set', function () {
+    $parentScope.vis.params.valueAxes[0].title.text = 'Custom Title';
+    $parentScope.updateAxisTitle();
+    expect($parentScope.vis.params.valueAxes[0].title.text).to.equal('Custom Title');
   });
 });

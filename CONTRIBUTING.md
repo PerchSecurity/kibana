@@ -29,6 +29,7 @@ A high level overview of our contributing guidelines.
     - [Running Browser Automation Tests](#running-browser-automation-tests)
       - [Browser Automation Notes](#browser-automation-notes)
   - [Building OS packages](#building-os-packages)
+  - [Writing documentation](#writing-documentation)
 - [Signing the contributor license agreement](#signing-the-contributor-license-agreement)
 - [Submitting a Pull Request](#submitting-a-pull-request)
 - [Code Reviewing](#code-reviewing)
@@ -258,48 +259,9 @@ npm run test:browser -- --dev # remove the --dev flag to run them once and close
 
 #### Running Browser Automation Tests
 
-The following will start Kibana, Elasticsearch and the chromedriver for you. To run the functional UI tests use the following commands
-
-```bash
-npm run test:ui
-```
-
-
-In order to start the server required for the `node scripts/functional_test_runner` tasks, use the following command. Once the server is started `node scripts/functional_test_runner` can be run multiple times without waiting for the server to start.
-
-```bash
-npm run test:ui:server
-```
-
-To execute the front-end browser tests, enter the following. This requires the server started by the `test:ui:server` task.
-
-```bash
-node scripts/functional_test_runner
-```
-
-To filter these tests, use `--grep=foo` for only running tests that match a regular expression.
-
-To run these browser tests against against some other Elasticsearch and Kibana instance you can set these environment variables and then run the test runner.
-Here's an example to run against an Elastic Cloud instance (note that you should run the same branch of tests as the version of Kibana you're testing);
-
-```bash
-export TEST_KIBANA_PROTOCOL=https
-export TEST_KIBANA_HOSTNAME=9249d04b1186b3e7bbe11ea60df4f963.us-east-1.aws.found.io
-export TEST_KIBANA_PORT=443
-export TEST_KIBANA_USER=elastic
-export TEST_KIBANA_PASS=<your password here>
-
-export TEST_ES_PROTOCOL=http
-export TEST_ES_HOSTNAME=aaa5d22032d76805fcce724ed9d9f5a2.us-east-1.aws.found.io
-export TEST_ES_PORT=9200
-export TEST_ES_USER=elastic
-export TEST_ES_PASS=<your password here>
-node scripts/functional_test_runner
-```
-
-##### Browser Automation Notes
 
 [Read about the `FunctionalTestRunner`](https://www.elastic.co/guide/en/kibana/current/development-functional-tests.html) to learn more about how you can run and develop functional tests for Kibana core and plugins.
+
 
 ### Building OS packages
 
@@ -319,6 +281,21 @@ npm run build -- --rpm
 ```
 
 Distributable packages can be found in `target/` after the build completes.
+
+### Writing documentation
+
+Kibana documentation is written in [asciidoc](http://asciidoc.org/) format in
+the `docs/` directory.
+
+To build the docs, you must clone the [elastic/docs](https://github.com/elastic/docs)
+repo as a sibling of your kibana repo. Follow the instructions in that project's
+README for getting the docs tooling set up.
+
+**To build the docs and open them in your browser:**
+
+```bash
+node scripts/docs.js --open
+```
 
 ## Signing the contributor license agreement
 

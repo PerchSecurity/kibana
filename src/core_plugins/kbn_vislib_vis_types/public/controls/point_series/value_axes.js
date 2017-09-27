@@ -1,5 +1,5 @@
 import _ from 'lodash';
-import uiModules from 'ui/modules';
+import { uiModules } from 'ui/modules';
 import vislibValueAxesTemplate from 'plugins/kbn_vislib_vis_types/controls/point_series/value_axes.html';
 const module = uiModules.get('kibana');
 
@@ -138,7 +138,7 @@ module.directive('vislibValueAxes', function () {
           if (matchingSeries.length === 1) {
             label = matchingSeries[0].makeLabel();
           }
-          if (lastAxisTitles[axis.id] !== label) {
+          if (lastAxisTitles[axis.id] !== label && label !== '') {
             lastAxisTitles[axis.id] = label;
             axis.title.text = label;
           }

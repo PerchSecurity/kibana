@@ -1,20 +1,20 @@
 import _ from 'lodash';
 import { format as formatUrl, parse as parseUrl } from 'url';
 
-import modules from 'ui/modules';
-import Notifier from 'ui/notify/notifier';
+import { uiModules } from 'ui/modules';
+import { Notifier } from 'ui/notify/notifier';
 import { UrlOverflowServiceProvider } from '../../error_url_overflow';
 
-import directivesProvider from '../directives';
+import { directivesProvider } from '../directives';
 
 const URL_LIMIT_WARN_WITHIN = 1000;
 
-export default function (chrome, internals) {
+export function initAngularApi(chrome, internals) {
   chrome.getFirstPathSegment = _.noop;
   chrome.getBreadcrumbs = _.noop;
 
   chrome.setupAngular = function () {
-    const kibana = modules.get('kibana');
+    const kibana = uiModules.get('kibana');
 
     _.forOwn(chrome.getInjected(), function (val, name) {
       kibana.value(name, val);
@@ -100,7 +100,7 @@ export default function (chrome, internals) {
 
     directivesProvider(chrome, internals);
 
-    modules.link(kibana);
+    uiModules.link(kibana);
   };
 
 }

@@ -1,6 +1,6 @@
 import _ from 'lodash';
 import angular from 'angular';
-import uiModules from 'ui/modules';
+import { uiModules } from 'ui/modules';
 import uiRoutes from 'ui/routes';
 import chrome from 'ui/chrome';
 
@@ -13,15 +13,18 @@ import { DashboardViewMode } from './dashboard_view_mode';
 import { TopNavIds } from './top_nav/top_nav_ids';
 import { ConfirmationButtonTypes } from 'ui/modals/confirm_modal';
 import dashboardTemplate from 'plugins/kibana/dashboard/dashboard.html';
-import FilterBarQueryFilterProvider from 'ui/filter_bar/query_filter';
-import DocTitleProvider from 'ui/doc_title';
+import { FilterBarQueryFilterProvider } from 'ui/filter_bar/query_filter';
+import { DocTitleProvider } from 'ui/doc_title';
 import { getTopNavConfig } from './top_nav/get_top_nav_config';
 import { DashboardConstants, createDashboardEditUrl } from './dashboard_constants';
 import { VisualizeConstants } from 'plugins/kibana/visualize/visualize_constants';
-import UtilsBrushEventProvider from 'ui/utils/brush_event';
-import FilterBarFilterBarClickHandlerProvider from 'ui/filter_bar/filter_bar_click_handler';
+import { UtilsBrushEventProvider } from 'ui/utils/brush_event';
+import { FilterBarClickHandlerProvider } from 'ui/filter_bar/filter_bar_click_handler';
 import { DashboardState } from './dashboard_state';
-import notify from 'ui/notify';
+import { notify } from 'ui/notify';
+import './panel/get_object_loaders_for_dashboard';
+import { documentationLinks } from 'ui/documentation_links/documentation_links';
+import { showCloneModal } from './top_nav/show_clone_modal';
 
 const app = uiModules.get('app/dashboard', [
   'elasticsearch',
@@ -29,7 +32,7 @@ const app = uiModules.get('app/dashboard', [
   'kibana/courier',
   'kibana/config',
   'kibana/notify',
-  'kibana/typeahead'
+  'kibana/typeahead',
 ]);
 
 uiRoutes
@@ -69,17 +72,27 @@ uiRoutes
     }
   });
 
-app.directive('dashboardApp', function (Notifier, courier, AppState, timefilter, quickRanges, kbnUrl, confirmModal, Private) {
+app.directive('dashboardApp', function ($injector) {
+  const Notifier = $injector.get('Notifier');
+  const courier = $injector.get('courier');
+  const AppState = $injector.get('AppState');
+  const timefilter = $injector.get('timefilter');
+  const quickRanges = $injector.get('quickRanges');
+  const kbnUrl = $injector.get('kbnUrl');
+  const confirmModal = $injector.get('confirmModal');
+  const Private = $injector.get('Private');
+
   const brushEvent = Private(UtilsBrushEventProvider);
-  const filterBarClickHandler = Private(FilterBarFilterBarClickHandlerProvider);
+  const filterBarClickHandler = Private(FilterBarClickHandlerProvider);
 
   return {
     restrict: 'E',
     controllerAs: 'dashboardApp',
-    controller: function ($scope, $rootScope, $route, $routeParams, $location, Private, getAppState) {
+    controller: function ($scope, $rootScope, $route, $routeParams, $location, getAppState, $compile) {
       const filterBar = Private(FilterBarQueryFilterProvider);
       const docTitle = Private(DocTitleProvider);
       const notify = new Notifier({ location: 'Dashboard' });
+      $scope.queryDocLinks = documentationLinks.query;
 
       const dash = $scope.dash = $route.current.locals.dash;
       if (dash.id) {
@@ -102,6 +115,7 @@ app.directive('dashboardApp', function (Notifier, courier, AppState, timefilter,
           darkTheme: dashboardState.getDarkTheme(),
           timeRestore: dashboardState.getTimeRestore(),
           title: dashboardState.getTitle(),
+          description: dashboardState.getDescription(),
         };
         $scope.panels = dashboardState.getPanels();
       };
@@ -161,10 +175,12 @@ app.directive('dashboardApp', function (Notifier, courier, AppState, timefilter,
       };
 
       // called by the saved-object-finder when a user clicks a vis
-      $scope.addVis = function (hit) {
+      $scope.addVis = function (hit, showToast = true) {
         pendingVisCount++;
         dashboardState.addNewPanel(hit.id, 'visualization');
-        notify.info(`Visualization successfully added to your dashboard`);
+        if (showToast) {
+          notify.info(`Visualization successfully added to your dashboard`);
+        }
       };
 
       $scope.addSearch = function (hit) {
@@ -184,14 +200,24 @@ app.directive('dashboardApp', function (Notifier, courier, AppState, timefilter,
         return dashboardState.uiState.createChild(path, uiState, true);
       };
 
-      $scope.onPanelRemoved = (panelIndex) => dashboardState.removePanel(panelIndex);
-
       $scope.$watch('model.darkTheme', () => {
         dashboardState.setDarkTheme($scope.model.darkTheme);
         updateTheme();
       });
+      $scope.$watch('model.description', () => dashboardState.setDescription($scope.model.description));
       $scope.$watch('model.title', () => dashboardState.setTitle($scope.model.title));
       $scope.$watch('model.timeRestore', () => dashboardState.setTimeRestore($scope.model.timeRestore));
+      $scope.indexPatterns = [];
+
+      $scope.registerPanelIndexPattern = (panelIndex, pattern) => {
+        dashboardState.registerPanelIndexPatternMap(panelIndex, pattern);
+        $scope.indexPatterns = dashboardState.getPanelIndexPatterns();
+      };
+
+      $scope.onPanelRemoved = (panelIndex) => {
+        dashboardState.removePanel(panelIndex);
+        $scope.indexPatterns = dashboardState.getPanelIndexPatterns();
+      };
 
       $scope.$listen(timefilter, 'fetch', $scope.refresh);
 
@@ -237,12 +263,6 @@ app.directive('dashboardApp', function (Notifier, courier, AppState, timefilter,
         );
       };
 
-      const navActions = {};
-      navActions[TopNavIds.EXIT_EDIT_MODE] = () => onChangeViewMode(DashboardViewMode.VIEW);
-      navActions[TopNavIds.ENTER_EDIT_MODE] = () => onChangeViewMode(DashboardViewMode.EDIT);
-
-      updateViewMode(dashboardState.getViewMode());
-
       $scope.save = function () {
         return dashboardState.saveDashboard(angular.toJson, timefilter).then(function (id) {
           $scope.kbnTopNav.close('save');
@@ -255,8 +275,33 @@ app.directive('dashboardApp', function (Notifier, courier, AppState, timefilter,
               updateViewMode(DashboardViewMode.VIEW);
             }
           }
-        }).catch(notify.fatal);
+          return id;
+        }).catch(notify.error);
       };
+
+      const navActions = {};
+      navActions[TopNavIds.EXIT_EDIT_MODE] = () => onChangeViewMode(DashboardViewMode.VIEW);
+      navActions[TopNavIds.ENTER_EDIT_MODE] = () => onChangeViewMode(DashboardViewMode.EDIT);
+      navActions[TopNavIds.CLONE] = () => {
+        const currentTitle = $scope.model.title;
+        const onClone = (newTitle) => {
+          dashboardState.savedDashboard.copyOnSave = true;
+          dashboardState.setTitle(newTitle);
+          return $scope.save().then(id => {
+            // If the save wasn't successful, put the original title back.
+            if (!id) {
+              $scope.model.title = currentTitle;
+              // There is a watch on $scope.model.title that *should* call this automatically but
+              // angular is failing to trigger it, so do so manually here.
+              dashboardState.setTitle(currentTitle);
+            }
+            return id;
+          });
+        };
+
+        showCloneModal(onClone, currentTitle, $rootScope, $compile);
+      };
+      updateViewMode(dashboardState.getViewMode());
 
       // update root source when filters update
       $scope.$listen(filterBar, 'update', function () {
@@ -296,7 +341,11 @@ app.directive('dashboardApp', function (Notifier, courier, AppState, timefilter,
       });
 
       if ($route.current.params && $route.current.params[DashboardConstants.NEW_VISUALIZATION_ID_PARAM]) {
-        $scope.addVis({ id: $route.current.params[DashboardConstants.NEW_VISUALIZATION_ID_PARAM] });
+        // Hide the toast message since they will already see a notification from saving the visualization,
+        // and one is sufficient (especially given how the screen jumps down a bit for each unique notification).
+        const showToast = false;
+        $scope.addVis({ id: $route.current.params[DashboardConstants.NEW_VISUALIZATION_ID_PARAM] }, showToast);
+
         kbnUrl.removeParam(DashboardConstants.ADD_VISUALIZATION_TO_DASHBOARD_MODE_PARAM);
         kbnUrl.removeParam(DashboardConstants.NEW_VISUALIZATION_ID_PARAM);
       }

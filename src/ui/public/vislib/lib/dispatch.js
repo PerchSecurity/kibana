@@ -1,9 +1,9 @@
 import d3 from 'd3';
 import _ from 'lodash';
 import $ from 'jquery';
-import SimpleEmitter from 'ui/utils/simple_emitter';
+import { SimpleEmitter } from 'ui/utils/simple_emitter';
 
-export default function DispatchClass(Private, config) {
+export function VislibLibDispatchProvider(Private, config) {
 
   /**
    * Handles event responses
@@ -40,7 +40,6 @@ export default function DispatchClass(Private, config) {
       const slices = isSlices ? data.slices : undefined;
       const handler = this.handler;
       const color = _.get(handler, 'data.color');
-      const isPercentage = (handler && handler.visConfig.get('mode', 'normal') === 'percentage');
 
       const eventData = {
         value: d.y,
@@ -58,12 +57,24 @@ export default function DispatchClass(Private, config) {
       };
 
       if (isSeries) {
-        // Find object with the actual d value and add it to the point object
+        let percentageMode = false;
+        //only series charts work in percentage mode.
+        const isSeriesChart = handler.charts && handler.charts[0] && handler.charts[0].getSeries;
+        const parentNode = d3.event.target.parentNode;
+        const parentData = parentNode ? parentNode.__data__ : null;
+        if (isSeriesChart && parentData) {
+          const aggId = parentData.aggId;
+          const seriesFromAggId = handler.charts[0].getSeries(aggId);
+          if (seriesFromAggId && seriesFromAggId.getValueAxis) {
+            percentageMode = seriesFromAggId.getValueAxis().axisConfig.isPercentage();
+          }
+        }
+
         const object = _.find(series, { 'label': label });
         if (object) {
           eventData.value = +object.values[i].y;
 
-          if (isPercentage) {
+          if (percentageMode) {
             // Add the formatted percentage to the point object
             eventData.percent = (100 * d.y).toFixed(1) + '%';
           }

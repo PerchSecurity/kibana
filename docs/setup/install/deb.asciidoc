@@ -160,7 +160,7 @@ include::systemd.asciidoc[]
 
 Kibana loads its configuration from the `/etc/kibana/kibana.yml`
 file by default.  The format of this config file is explained in
-<<settings>>.
+{kibana-ref}/settings.html[Configuring Kibana].
 
 [[deb-layout]]
 ==== Directory layout of Debian package
@@ -191,7 +191,7 @@ locations for a Debian-based system:
 | data
   | The location of the data files written to disk by Kibana and its plugins
   | /var/lib/kibana
- d|
+  | path.data
 
 | optimize
   | Transpiled source code. Certain administrative actions (e.g. plugin install)
