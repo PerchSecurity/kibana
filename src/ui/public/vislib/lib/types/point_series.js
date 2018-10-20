@@ -1,18 +1,16 @@
 import _ from 'lodash';
 
-export default function ColumnHandler() {
+export function VislibTypesPointSeries() {
 
   const createSerieFromParams = (cfg, seri) => {
-    const matchingSeriParams = cfg.seriesParams ? cfg.seriesParams.find(seriConfig => {
+    const matchingSeriesParams = cfg.seriesParams ? cfg.seriesParams.find(seriConfig => {
       return seri.aggId === seriConfig.data.id;
     }) : null;
 
 
-    let interpolate = matchingSeriParams ? matchingSeriParams.interpolate : cfg.interpolate;
-    // for backward compatibility when loading URLs or configs we need to check smoothLines
-    if (cfg.smoothLines) interpolate = 'cardinal';
+    const interpolate = cfg.smoothLines ? 'cardinal' : cfg.interpolate;
 
-    if (!matchingSeriParams) {
+    if (!matchingSeriesParams) {
       const stacked = ['stacked', 'percentage', 'wiggle', 'silhouette'].includes(cfg.mode);
       return {
         show: true,
@@ -27,15 +25,7 @@ export default function ColumnHandler() {
     }
 
     return {
-      show: matchingSeriParams.show,
-      type: matchingSeriParams.type,
-      mode: matchingSeriParams.mode,
-      interpolate: interpolate,
-      valueAxis: matchingSeriParams.valueAxis,
-      drawLinesBetweenPoints: matchingSeriParams.drawLinesBetweenPoints,
-      showCircles: matchingSeriParams.showCircles,
-      radiusRatio: cfg.radiusRatio,
-      lineWidth: matchingSeriParams.lineWidth,
+      ...matchingSeriesParams,
       data: seri
     };
   };
@@ -130,6 +120,13 @@ export default function ColumnHandler() {
             }
           }
         ];
+      } else {
+        const categoryAxis1 = config.categoryAxes.find((categoryAxis) => {
+          return categoryAxis.id === 'CategoryAxis-1';
+        });
+        if (categoryAxis1) {
+          categoryAxis1.title.text = data.get('xAxisLabel');
+        }
       }
 
       if (!config.charts) {
@@ -189,7 +186,7 @@ export default function ColumnHandler() {
         rangePadding: 0,
         rangeOuterPadding: 0
       };
-      defaults.valueAxes.push({
+      defaults.categoryAxes.push({
         id: 'CategoryAxis-2',
         type: 'category',
         position: 'left',
@@ -199,7 +196,7 @@ export default function ColumnHandler() {
         },
         labels: {
           filter: false,
-          axisFormatter: data.get('zAxisFormatter') || function () { return ''; }
+          axisFormatter:  function (val) { return val; }
         },
         style: {
           rangePadding: 0,

@@ -1,14 +1,14 @@
 import _ from 'lodash';
-import uiModules from 'ui/modules';
+import { uiModules } from 'ui/modules';
 import TagCloud from 'plugins/tagcloud/tag_cloud';
 import AggConfigResult from 'ui/vis/agg_config_result';
-import FilterBarFilterBarClickHandlerProvider from 'ui/filter_bar/filter_bar_click_handler';
+import { FilterBarClickHandlerProvider } from 'ui/filter_bar/filter_bar_click_handler';
 
 const module = uiModules.get('kibana/tagcloud', ['kibana']);
 module.controller('KbnTagCloudController', function ($scope, $element, Private, getAppState) {
 
   const containerNode = $element[0];
-  const filterBarClickHandler = Private(FilterBarFilterBarClickHandlerProvider);
+  const filterBarClickHandler = Private(FilterBarClickHandlerProvider);
   const maxTagCount = 200;
   let truncated = false;
 
@@ -32,9 +32,7 @@ module.controller('KbnTagCloudController', function ($scope, $element, Private, 
     }
 
     const bucketName = containerNode.querySelector('.tagcloud-custom-label');
-    bucketName.innerHTML = `${$scope.vis.aggs[0].makeLabel()} - ${$scope.vis.aggs[1].makeLabel()}`;
-
-
+    bucketName.textContent = `${$scope.vis.aggs[0].makeLabel()} - ${$scope.vis.aggs[1].makeLabel()}`;
     truncatedMessage.style.display = truncated ? 'block' : 'none';
 
 

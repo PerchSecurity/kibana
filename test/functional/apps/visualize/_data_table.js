@@ -3,6 +3,7 @@ import expect from 'expect.js';
 export default function ({ getService, getPageObjects }) {
   const log = getService('log');
   const retry = getService('retry');
+  const screenshots = getService('screenshots');
   const PageObjects = getPageObjects(['common', 'visualize', 'header']);
 
   describe('visualize app', function describeIndexTests() {
@@ -70,20 +71,63 @@ export default function ({ getService, getPageObjects }) {
 
       it('should show correct data, take screenshot', function () {
         const expectedChartData = [
-          '0', '2,088', '2,000', '2,748', '4,000', '2,707', '6,000', '2,876',
-          '8,000', '2,863', '10,000', '147', '12,000', '148', '14,000', '129', '16,000', '161', '18,000', '137'
+          '0B', '2,088', '1.953KB', '2,748', '3.906KB', '2,707', '5.859KB', '2,876', '7.813KB',
+          '2,863', '9.766KB', '147', '11.719KB', '148', '13.672KB', '129', '15.625KB', '161', '17.578KB', '137'
         ];
 
         return retry.try(function () {
           return PageObjects.visualize.getDataTableData()
           .then(function showData(data) {
             log.debug(data.split('\n'));
-            PageObjects.common.saveScreenshot('Visualize-data-table');
+            screenshots.take('Visualize-data-table');
             expect(data.split('\n')).to.eql(expectedChartData);
           });
         });
       });
-
+      it('should show correct data for a data table with top hits', function () {
+        log.debug('navigateToApp visualize');
+        return PageObjects.common.navigateToUrl('visualize', 'new')
+        .then(function () {
+          log.debug('clickDataTable');
+          return PageObjects.visualize.clickDataTable();
+        })
+        .then(function clickNewSearch() {
+          log.debug('clickNewSearch');
+          return PageObjects.visualize.clickNewSearch();
+        })
+        .then(function setAbsoluteRange() {
+          log.debug('Set absolute time range from \"' + fromTime + '\" to \"' + toTime + '\"');
+          return PageObjects.header.setAbsoluteRange(fromTime, toTime);
+        })
+        .then(function clickMetricEditor() {
+          log.debug('clickMetricEditor');
+          return PageObjects.visualize.clickMetricEditor();
+        })
+        .then(function selectAggregation() {
+          log.debug('Select aggregation');
+          return PageObjects.visualize.selectAggregation('Top Hit');
+        })
+        .then(function selectField() {
+          log.debug('Field = _source');
+          return PageObjects.visualize.selectField('_source', 'metrics');
+        })
+        .then(function clickGo() {
+          return PageObjects.visualize.clickGo();
+        })
+        .then(function () {
+          return PageObjects.header.waitUntilLoadingHasFinished();
+        })
+        .then(function () {
+          return retry.try(function () {
+            return PageObjects.visualize.getDataTableData()
+              .then(function showData(data) {
+                const tableData = data.trim().split('\n');
+                log.debug(tableData);
+                expect(tableData.length).to.be(1);
+              });
+          });
+        });
+      });
     });
   });
 }

@@ -3,4 +3,6 @@ include::plugins.asciidoc[]
 
 include::development.asciidoc[]
 
-include::release-notes.asciidoc[]
+include::limitations.asciidoc[]
+
+include::CHANGELOG.asciidoc[]

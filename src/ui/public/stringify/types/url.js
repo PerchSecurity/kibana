@@ -1,14 +1,14 @@
 import _ from 'lodash';
 import 'ui/field_format_editor/pattern/pattern';
 import 'ui/stringify/icons';
-import IndexPatternsFieldFormatProvider from 'ui/index_patterns/_field_format/field_format';
+import { IndexPatternsFieldFormatProvider } from 'ui/index_patterns/_field_format/field_format';
 import urlTemplate from 'ui/stringify/editors/url.html';
 import { getHighlightHtml } from 'ui/highlight';
 
-export default function UrlFormatProvider(Private) {
+export function stringifyUrl(Private) {
 
   const FieldFormat = Private(IndexPatternsFieldFormatProvider);
-
+  const whitelistUrlSchemes = ['http://', 'https://'];
 
   _.class(Url).inherits(FieldFormat);
   function Url(params) {
@@ -87,19 +87,62 @@ export default function UrlFormatProvider(Private) {
       return this._formatLabel(value);
     },
 
-    html: function (rawValue, field, hit) {
+    html: function (rawValue, field, hit, parsedUrl) {
       const url = _.escape(this._formatUrl(rawValue));
-      let label = _.escape(this._formatLabel(rawValue, url));
+      const label = _.escape(this._formatLabel(rawValue, url));
 
       switch (this.param('type')) {
         case 'img':
-          return '<img src="' + url + '" alt="' + label + '" title="' + label + '">';
+          // If the URL hasn't been formatted to become a meaningful label then the best we can do
+          // is tell screen readers where the image comes from.
+          const imageLabel =
+            label === url
+            ? `A dynamically-specified image located at ${url}`
+            : label;
+
+          return `<img src="${url}" alt="${imageLabel}">`;
         default:
-          if (hit && hit.highlight && hit.highlight[field.name]) {
-            label = getHighlightHtml(label, hit.highlight[field.name]);
+          const inWhitelist = whitelistUrlSchemes.some(scheme => url.indexOf(scheme) === 0);
+          if (!inWhitelist && !parsedUrl) {
+            return url;
           }
 
-          return '<a href="' + url + '" target="_blank">' + label + '</a>';
+          let prefix = '';
+          /**
+           * This code attempts to convert a relative url into a kibana absolute url
+           *
+           * SUPPORTED:
+           *  - /app/kibana/
+           *  - ../app/kibana
+           *  - #/discover
+           *
+           * UNSUPPORTED
+           *  - app/kibana
+           */
+          if (!inWhitelist) {
+            // Handles urls like: `#/discover`
+            if (url[0] === '#') {
+              prefix = `${parsedUrl.origin}${parsedUrl.pathname}`;
+            }
+            // Handle urls like: `/app/kibana` or `/xyz/app/kibana`
+            else if (url.indexOf(parsedUrl.basePath || '/') === 0) {
+              prefix = `${parsedUrl.origin}`;
+            }
+            // Handle urls like: `../app/kibana`
+            else {
+              prefix = `${parsedUrl.origin}${parsedUrl.basePath}/app/`;
+            }
+          }
+
+          let linkLabel;
+
+          if (hit && hit.highlight && hit.highlight[field.name]) {
+            linkLabel = getHighlightHtml(label, hit.highlight[field.name]);
+          } else {
+            linkLabel = label;
+          }
+
+          return `<a href="${prefix}${url}" target="_blank">${linkLabel}</a>`;
       }
     }
   };

@@ -2,17 +2,18 @@ import $ from 'jquery';
 import { remove } from 'lodash';
 
 import './kbn_chrome.less';
-import UiModules from 'ui/modules';
+import { uiModules } from 'ui/modules';
 import { isSystemApiRequest } from 'ui/system_api';
 import {
   getUnhashableStatesProvider,
   unhashUrl,
 } from 'ui/state_management/state_hashing';
-import Notifier from 'ui/notify';
+import { notify } from 'ui/notify';
+import { SubUrlRouteFilterProvider } from './sub_url_route_filter';
 
-export default function (chrome, internals) {
+export function kbnChromeProvider(chrome, internals) {
 
-  UiModules
+  uiModules
   .get('kibana')
   .directive('kbnChrome', () => {
     return {
@@ -39,16 +40,23 @@ export default function (chrome, internals) {
         // are we showing the embedded version of the chrome?
         internals.setVisibleDefault(!$location.search().embed);
 
-        // listen for route changes, propogate to tabs
-        const onRouteChange = function () {
+        const subUrlRouteFilter = Private(SubUrlRouteFilterProvider);
+
+        function updateSubUrls() {
           const urlWithHashes = window.location.href;
           const urlWithStates = unhashUrl(urlWithHashes, getUnhashableStates());
           internals.trackPossibleSubUrl(urlWithStates);
-        };
+        }
+
+        function onRouteChange($event) {
+          if (subUrlRouteFilter($event)) {
+            updateSubUrls();
+          }
+        }
 
         $rootScope.$on('$routeChangeSuccess', onRouteChange);
         $rootScope.$on('$routeUpdate', onRouteChange);
-        onRouteChange();
+        updateSubUrls(); // initialize sub urls
 
         const allPendingHttpRequests = () => $http.pendingRequests;
         const removeSystemApiRequests = (pendingHttpRequests = []) => remove(pendingHttpRequests, isSystemApiRequest);
@@ -56,7 +64,7 @@ export default function (chrome, internals) {
 
         // and some local values
         chrome.httpActive = $http.pendingRequests;
-        $scope.notifList = Notifier._notifs;
+        $scope.notifList = notify._notifs;
 
         return chrome;
       }

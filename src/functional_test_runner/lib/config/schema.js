@@ -1,6 +1,6 @@
-import Joi from 'joi';
+import { resolve, dirname } from 'path';
 
-import { ConsoleReporterProvider } from '../reporters';
+import Joi from 'joi';
 
 // valid pattern for ID
 // enforced camel-case identifiers for consistency
@@ -18,8 +18,20 @@ const urlPartsSchema = () => Joi.object().keys({
   hash: Joi.string().regex(/^\//, 'start with a /')
 }).default();
 
+const defaultRelativeToConfigPath = path => {
+  const makeDefault = (locals, options) => (
+    resolve(dirname(options.context.path), path)
+  );
+  makeDefault.description = `<config.js directory>/${path}`;
+  return makeDefault;
+};
+
 export const schema = Joi.object().keys({
-  testFiles: Joi.array().items(Joi.string()).required(),
+  testFiles: Joi.array().items(Joi.string()).when('$primary', {
+    is: true,
+    then: Joi.required(),
+    otherwise: Joi.default([]),
+  }),
 
   services: Joi.object().pattern(
     ID_PATTERN,
@@ -46,7 +58,12 @@ export const schema = Joi.object().keys({
     slow: Joi.number().default(30000),
     timeout: Joi.number().default(60000),
     ui: Joi.string().default('bdd'),
-    reporterProvider: Joi.func().default(ConsoleReporterProvider),
+  }).default(),
+
+  junit: Joi.object().keys({
+    enabled: Joi.boolean().default(!!process.env.CI),
+    reportName: Joi.string(),
+    rootDirectory: Joi.string(),
   }).default(),
 
   users: Joi.object().pattern(
@@ -58,9 +75,12 @@ export const schema = Joi.object().keys({
   ),
 
   servers: Joi.object().keys({
-    webdriver: urlPartsSchema(),
     kibana: urlPartsSchema(),
     elasticsearch: urlPartsSchema(),
+  }).default(),
+
+  chromedriver: Joi.object().keys({
+    url: Joi.string().uri({ scheme: /https?/ }).default('http://localhost:9515')
   }).default(),
 
   // definition of apps that work with `common.navigateToApp()`
@@ -71,11 +91,11 @@ export const schema = Joi.object().keys({
 
   // settings for the esArchiver module
   esArchiver: Joi.object().keys({
-    directory: Joi.string().required()
-  }),
+    directory: Joi.string().default(defaultRelativeToConfigPath('fixtures/es_archiver'))
+  }).default(),
 
   // settings for the screenshots module
   screenshots: Joi.object().keys({
-    directory: Joi.string().required()
-  }),
+    directory: Joi.string().default(defaultRelativeToConfigPath('screenshots'))
+  }).default(),
 }).default();

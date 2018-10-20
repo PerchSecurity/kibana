@@ -1,13 +1,20 @@
 import _ from 'lodash';
-// Takes a hit, merges it with any stored/scripted fields, and with the metaFields
-// returns a formated version
+import chrome from 'ui/chrome';
 
-export default function (indexPattern, defaultFormat) {
+// Takes a hit, merges it with any stored/scripted fields, and with the metaFields
+// returns a formatted version
+
+export function formatHit(indexPattern, defaultFormat) {
 
   function convert(hit, val, fieldName) {
     const field = indexPattern.fields.byName[fieldName];
     if (!field) return defaultFormat.convert(val, 'html');
-    return field.format.getConverterFor('html')(val, field, hit);
+    const parsedUrl = {
+      origin: window.location.origin,
+      pathname: window.location.pathname,
+      basePath: chrome.getBasePath(),
+    };
+    return field.format.getConverterFor('html')(val, field, hit, parsedUrl);
   }
 
   function formatHit(hit) {

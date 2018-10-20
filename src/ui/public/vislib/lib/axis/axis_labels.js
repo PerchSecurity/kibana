@@ -1,6 +1,7 @@
 import d3 from 'd3';
 import $ from 'jquery';
-export default function AxisLabelsFactory() {
+
+export function VislibAxisLabelsProvider() {
   class AxisLabels {
     constructor(axisConfig, scale) {
       this.axisConfig = axisConfig;
@@ -95,7 +96,6 @@ export default function AxisLabelsFactory() {
 
       return function (selection) {
         if (!config.get('labels.filter')) return;
-
         selection.selectAll('.tick text')
         .text(function (d) {
           const par = d3.select(this.parentNode).node();
@@ -107,7 +107,7 @@ export default function AxisLabelsFactory() {
 
           if ((startPos + halfSize) < myPos && maxSize > (myPos + halfSize)) {
             startPos = myPos + halfSize;
-            return this.innerHTML;
+            return this.textContent;
           } else {
             d3.select(this.parentNode).remove();
           }

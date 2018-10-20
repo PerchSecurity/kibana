@@ -1,6 +1,7 @@
 import d3 from 'd3';
 import $ from 'jquery';
-export default function AxisTitleFactory() {
+
+export function VislibLibAxisTitleProvider() {
 
   class AxisTitle {
     constructor(axisConfig) {
@@ -48,9 +49,9 @@ export default function AxisTitleFactory() {
           .getBBox();
 
           if (config.isHorizontal()) {
-            svg.attr('height', bbox.height);
+            svg.attr('height', Math.ceil(bbox.height));
           } else {
-            svg.attr('width', bbox.height);
+            svg.attr('width', Math.ceil(bbox.height));
           }
         });
       };

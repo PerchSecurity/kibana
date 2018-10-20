@@ -29,6 +29,7 @@ A high level overview of our contributing guidelines.
     - [Running Browser Automation Tests](#running-browser-automation-tests)
       - [Browser Automation Notes](#browser-automation-notes)
   - [Building OS packages](#building-os-packages)
+  - [Writing documentation](#writing-documentation)
 - [Signing the contributor license agreement](#signing-the-contributor-license-agreement)
 - [Submitting a Pull Request](#submitting-a-pull-request)
 - [Code Reviewing](#code-reviewing)
@@ -280,6 +281,21 @@ npm run build -- --rpm
 
 Distributable packages can be found in `target/` after the build completes.
 
+### Writing documentation
+
+Kibana documentation is written in [asciidoc](http://asciidoc.org/) format in
+the `docs/` directory.
+
+To build the docs, you must clone the [elastic/docs](https://github.com/elastic/docs)
+repo as a sibling of your kibana repo. Follow the instructions in that project's
+README for getting the docs tooling set up.
+
+**To build the docs and open them in your browser:**
+
+```bash
+node scripts/docs.js --open
+```
+
 ## Signing the contributor license agreement
 
 Please make sure you have signed the [Contributor License Agreement](http://www.elastic.co/contributor-agreement/). We are not asking you to assign copyright to us, but to give us the right to distribute your code without restriction. We ask this of all contributors in order to assure our users of the origin and continuing existence of the code. You only need to sign the CLA once.
@@ -304,20 +320,6 @@ After a pull is submitted, it needs to get to review. If you have commit permiss
 
 ### Reviewing Pull Requests
 
-So, you've been assigned a pull to review. What's that look like?
-
-Remember, someone is blocked by a pull awaiting review, make it count. Be thorough, the more action items you catch in the first review, the less back and forth will be required, and the better chance the pull has of being successful.
-
-1. **Understand the issue** that is being fixed, or the feature being added. Check the description on the pull, and check out the related issue. If you don't understand something, ask the submitter for clarification.
-1. **Reproduce the bug** (or the lack of feature I guess?) in the destination branch, usually `master`. The referenced issue will help you here. If you're unable to reproduce the issue, contact the issue submitter for clarification
-1. **Check out the pull** and test it. Is the issue fixed? Does it have nasty side effects? Try to create suspect inputs. If it operates on the value of a field try things like: strings (including an empty string), null, numbers, dates. Try to think of edge cases that might break the code.
-1. **Merge the target branch**. It is possible that tests or the linter have been updated in the target branch since the pull was submitted. Merging the pull could cause core to start failing.
-1. **Read the code**. Understanding the changes will help you find additional things to test. Contact the submitter if you don't understand something.
-1. **Go line-by-line**. Are there [style guide](https://github.com/elastic/kibana/blob/master/STYLEGUIDE.md) violations? Strangely named variables? Magic numbers? Do the abstractions make sense to you? Are things arranged in a testable way?
-1. **Speaking of tests** Are they there? If a new function was added does it have tests? Do the tests, well, TEST anything? Do they just run the function or do they properly check the output?
-1. **Suggest improvements** If there are changes needed, be explicit, comment on the lines in the code that you'd like changed. You might consider suggesting fixes. If you can't identify the problem, animated screenshots can help the review understand what's going on.
-1. **Hand it back** If you found issues, re-assign the submitter to the pull to address them. Repeat until mergable.
-1. **Hand it off** If you're the first reviewer and everything looks good but the changes are more than a few lines, hand the pull to someone else to take a second look. Again, try to find the right person to assign it to.
-1. **Merge the code** When everything looks good, put in a `LGTM` (looks good to me) comment. Merge into the target branch. Check the labels on the pull to see if backporting is required, and perform the backport if so.
+So, you've been assigned a pull to review. Check out our [pull request review guidelines](https://www.elastic.co/guide/en/kibana/master/pr-review.html) for our general philosophy for pull request reviewers.
 
 Thank you so much for reading our guidelines! :tada:
