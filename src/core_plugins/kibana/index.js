@@ -3,11 +3,13 @@ import { resolve } from 'path';
 import Promise from 'bluebird';
 import { mkdirp as mkdirpNode } from 'mkdirp';
 
-import manageUuid from './server/lib/manage_uuid';
+//import manageUuid from './server/lib/manage_uuid';
+//import ingest from './server/routes/api/ingest';
 import search from './server/routes/api/search';
-import { importApi } from './server/routes/api/import';
-import { exportApi } from './server/routes/api/export';
-import scripts from './server/routes/api/scripts';
+//import settings from './server/routes/api/settings';
+//import scripts from './server/routes/api/scripts';
+//import { importApi } from './server/routes/api/import';
+//import { exportApi } from './server/routes/api/export';
 import { registerSuggestionsApi } from './server/routes/api/suggestions';
 import * as systemApi from './server/lib/system_api';
 import mappings from './mappings.json';
@@ -158,10 +160,12 @@ module.exports = function (kibana) {
       // uuid
       //manageUuid(server);
       // routes
+      //ingest(server);
       search(server);
-      scripts(server);
-      importApi(server);
-      exportApi(server);
+      //settings(server);
+      //scripts(server);
+      //importApi(server);
+      //exportApi(server);
       registerSuggestionsApi(server);
       server.expose('systemApi', systemApi);
     }
