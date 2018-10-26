@@ -1,7 +1,7 @@
 import _ from 'lodash';
 import angular from 'angular';
 import moment from 'moment';
-import getSort from 'ui/doc_table/lib/get_sort';
+import { getSort } from 'ui/doc_table/lib/get_sort';
 import * as columnActions from 'ui/doc_table/actions/columns';
 import dateMath from '@elastic/datemath';
 import 'ui/doc_table';
@@ -15,18 +15,21 @@ import 'ui/index_patterns';
 import 'ui/state_management/app_state';
 import 'ui/timefilter';
 import 'ui/share';
-import VisProvider from 'ui/vis';
-import DocTitleProvider from 'ui/doc_title';
-import UtilsBrushEventProvider from 'ui/utils/brush_event';
+import { VisProvider } from 'ui/vis';
+import { DocTitleProvider } from 'ui/doc_title';
+import { UtilsBrushEventProvider } from 'ui/utils/brush_event';
 import PluginsKibanaDiscoverHitSortFnProvider from 'plugins/kibana/discover/_hit_sort_fn';
-import FilterBarQueryFilterProvider from 'ui/filter_bar/query_filter';
-import FilterManagerProvider from 'ui/filter_manager';
-import AggTypesBucketsIntervalOptionsProvider from 'ui/agg_types/buckets/_interval_options';
-import stateMonitorFactory  from 'ui/state_management/state_monitor_factory';
+import { FilterBarQueryFilterProvider } from 'ui/filter_bar/query_filter';
+import { FilterManagerProvider } from 'ui/filter_manager';
+import { AggTypesBucketsIntervalOptionsProvider } from 'ui/agg_types/buckets/_interval_options';
+import { stateMonitorFactory } from 'ui/state_management/state_monitor_factory';
 import uiRoutes from 'ui/routes';
-import uiModules from 'ui/modules';
+import { uiModules } from 'ui/modules';
 import indexTemplate from 'plugins/kibana/discover/index.html';
-import StateProvider from 'ui/state_management/state';
+import { StateProvider } from 'ui/state_management/state';
+import { documentationLinks } from 'ui/documentation_links/documentation_links';
+import { SavedObjectsClientProvider } from 'ui/saved_objects';
+import { getDefaultQuery } from 'ui/parse_query';
 
 const app = uiModules.get('apps/discover', [
   'kibana/notify',
@@ -44,8 +47,14 @@ uiRoutes
   resolve: {
     ip: function (Promise, courier, config, $location, Private) {
       const State = Private(StateProvider);
-      return courier.indexPatterns.getIds()
-      .then(function (list) {
+      const savedObjectsClient = Private(SavedObjectsClientProvider);
+
+      return savedObjectsClient.find({
+        type: 'index-pattern',
+        fields: ['title'],
+        perPage: 10000
+      })
+      .then(({ savedObjects }) => {
         /**
          *  In making the indexPattern modifiable it was placed in appState. Unfortunately,
          *  the load order of AppState conflicts with the load order of many other things
@@ -58,12 +67,12 @@ uiRoutes
         const state = new State('_a', {});
 
         const specified = !!state.index;
-        const exists = _.contains(list, state.index);
+        const exists = _.findIndex(savedObjects, o => o.id === state.index) > -1;
         const id = exists ? state.index : config.get('defaultIndex');
         state.destroy();
 
         return Promise.props({
-          list: list,
+          list: savedObjects,
           loaded: courier.indexPatterns.get(id),
           stateVal: state.index,
           stateValFound: specified && exists
@@ -102,6 +111,7 @@ function discoverController($scope, config, courier, $route, $window, Notifier,
     location: 'Discover'
   });
 
+  $scope.queryDocLinks = documentationLinks.query;
   $scope.intervalOptions = Private(AggTypesBucketsIntervalOptionsProvider);
   $scope.showInterval = false;
 
@@ -150,13 +160,16 @@ function discoverController($scope, config, courier, $route, $window, Notifier,
   }
 
   let stateMonitor;
-  const $appStatus = $scope.appStatus = this.appStatus = {};
+  const $appStatus = $scope.appStatus = this.appStatus = {
+    dirty: !savedSearch.id
+  };
   const $state = $scope.state = new AppState(getStateDefaults());
+
   $scope.uiState = $state.makeStateful('uiState');
 
   function getStateDefaults() {
     return {
-      query: $scope.searchSource.get('query') || '',
+      query: $scope.searchSource.get('query') || getDefaultQuery(),
       sort: getSort.array(savedSearch.sort, $scope.indexPattern),
       columns: savedSearch.columns.length > 0 ? savedSearch.columns : config.get('defaultColumns').slice(),
       index: $scope.indexPattern.id,
@@ -175,8 +188,6 @@ function discoverController($scope, config, courier, $route, $window, Notifier,
   $scope.opts = {
     // number of records to fetch, then paginate through
     sampleSize: config.get('discover:sampleSize'),
-    // Index to match
-    index: $scope.indexPattern.id,
     timefield: $scope.indexPattern.timeFieldName,
     savedSearch: savedSearch,
     indexPatternList: $route.current.locals.ip.list,
@@ -195,7 +206,7 @@ function discoverController($scope, config, courier, $route, $window, Notifier,
 
     stateMonitor = stateMonitorFactory.create($state, getStateDefaults());
     stateMonitor.onChange((status) => {
-      $appStatus.dirty = status.dirty;
+      $appStatus.dirty = status.dirty || !savedSearch.id;
     });
     $scope.$on('$destroy', () => stateMonitor.destroy());
 
@@ -582,7 +593,7 @@ function discoverController($scope, config, courier, $route, $window, Notifier,
 
     if (own && !stateVal) return own;
     if (stateVal && !stateValFound) {
-      const err = '"' + stateVal + '" is not a configured pattern. ';
+      const err = '"' + stateVal + '" is not a configured pattern ID. ';
       if (own) {
         notify.warning(err + ' Using the saved index pattern: "' + own.id + '"');
         return own;

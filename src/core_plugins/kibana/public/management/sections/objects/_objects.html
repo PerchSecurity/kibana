@@ -11,6 +11,7 @@
       <div class="kuiBarSection">
         <button
           class="kuiButton kuiButton--basic kuiButton--iconText"
+          data-test-subj="exportAllObjects"
           ng-click="exportAll()"
         >
           <span class="kuiButton__inner">
@@ -48,12 +49,12 @@
           class="kuiTab kbn-management-tab"
           ng-class="{ 'kuiTab-isSelected': state.tab === service.title }"
           ng-repeat="service in services"
-          title="{{ service.title }}"
           ng-click="changeTab(service)"
+          data-test-subj="objectsTab-{{ service.title }}"
         >
           {{ service.title }}
-          <small>
-          ({{service.data.length}}<span ng-show="service.total > service.data.length"> of {{service.total}}</span>)
+          <small aria-label="{{:: service.data.length + ' of ' + service.total + ' ' + service.title }}">
+            ({{service.data.length}}<span ng-show="service.total > service.data.length"> of {{service.total}}</span>)
           </small>
         </button>
       </div>
@@ -118,13 +119,13 @@
         class="kuiPanel kuiPanel--centered kuiPanel--withHeader"
         ng-if="!service.data.length"
       >
-        <div class="kuiNoItems">
+        <div class="kuiTableInfo">
           No {{service.title}} matched your search.
         </div>
       </div>
 
       <!-- Table -->
-      <table class="kuiTable" ng-if="service.data.length">
+      <table class="kuiTable" ng-if="service.data.length" data-test-subj="objectsTable-{{service.title}}">
         <thead>
           <tr>
             <th class="kuiTableHeaderCell kuiTableHeaderCell--checkBox">
@@ -145,6 +146,7 @@
           <tr
             ng-repeat="item in service.data | orderBy:'title'"
             class="kuiTableRow"
+            data-test-subj="objectsTableRow"
           >
             <td class="kuiTableRowCell kuiTableRowCell--checkBox">
               <div class="kuiTableRowCell__liner">

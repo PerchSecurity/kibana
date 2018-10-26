@@ -3,6 +3,7 @@ import apiServer from './api_server/server';
 import { existsSync } from 'fs';
 import { resolve, join, sep } from 'path';
 import { has, isEmpty } from 'lodash';
+import setHeaders from '../elasticsearch/lib/set_headers';
 
 import {
   ProxyConfigCollection,
@@ -87,7 +88,8 @@ export default function (kibana) {
         pathFilters: proxyPathFilters,
         getConfigForReq(req, uri) {
           const whitelist = config.get('elasticsearch.requestHeadersWhitelist');
-          const headers = filterHeaders(req.headers, whitelist);
+          const filteredHeaders = filterHeaders(req.headers, whitelist);
+          const headers = setHeaders(filteredHeaders, config.get('elasticsearch.customHeaders'));
 
           if (!isEmpty(config.get('console.proxyConfig'))) {
             return {
@@ -134,10 +136,10 @@ export default function (kibana) {
       hacks: ['plugins/console/hacks/register'],
       devTools: ['plugins/console/console'],
 
-      injectDefaultVars(server, options) {
-        const varsToInject = options;
-        varsToInject.elasticsearchUrl = server.config().get('elasticsearch.url');
-        return varsToInject;
+      injectDefaultVars(server) {
+        return {
+          elasticsearchUrl: server.config().get('elasticsearch.url')
+        };
       },
 
       noParse: [

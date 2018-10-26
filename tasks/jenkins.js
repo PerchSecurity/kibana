@@ -21,11 +21,15 @@ module.exports = function (grunt) {
     process.env.PATH = path.join(delimiter);
   });
 
+  grunt.registerTask('jenkins:docs', [
+    'docker:docs'
+  ]);
+
   grunt.registerTask('jenkins:unit', [
     'jenkins:env',
     'rejectRejFiles',
 
-    'eslint:source',
+    'run:eslint',
     'licenses',
     'test:server',
     'test:jest',
@@ -34,11 +38,12 @@ module.exports = function (grunt) {
     '_build:verifyTranslations',
   ]);
 
+  grunt.config.set('functional_test_runner.functional.options.configOverrides.mochaOpts.bail', true);
   grunt.registerTask('jenkins:selenium', [
     'jenkins:env',
     'rejectRejFiles',
 
-    'test:ui'
+    'test:uiRelease'
   ]);
 
 };
