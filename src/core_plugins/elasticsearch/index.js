@@ -134,6 +134,8 @@ export default function (kibana) {
       server.expose('filterHeaders', filterHeaders);
       server.expose('ElasticsearchClientLogging', clientLogger(server));
 
+      server.expose('proxyHandler', proxyHandler);
+
       createDataCluster(server);
       createAdminCluster(server);
 

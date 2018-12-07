@@ -5,6 +5,7 @@ It is mostly a mashup of these two files:
 https://github.com/elastic/kibana/blob/5.4/src/core_plugins/elasticsearch/lib/create_proxy.js
 https://github.com/hapijs/h2o2/blob/master/lib/index.js
 */
+import createAgent from './create_agent';
 import mapUri from './map_uri';
 import Wreck from 'wreck';
 import Hoek from 'hoek';
@@ -39,18 +40,7 @@ export function createProxy(server, method, path, config) {
           socket: cluster.getRequestTimeout()
         },
       },
-      handler: {
-        proxy: {
-          mapUri: mapUri(cluster, proxyPrefix),
-          agent: createAgent({
-            url: cluster.getUrl(),
-            ssl: cluster.getSsl()
-          }),
-          xforward: true,
-          timeout: cluster.getRequestTimeout(),
-          onResponse: responseHandler
-        }
-      }
+      handler: server.plugins.elasticsearch.proxyHandler(mapUri(cluster, proxyPrefix))
     };
 
     // Perchybana specific safety. GET only.
