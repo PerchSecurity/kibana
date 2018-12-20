@@ -24,6 +24,7 @@ import {
 } from '@elastic/eui';
 import { sortByOrder } from 'lodash';
 import moment from 'moment';
+import { documentationLinks } from '../../lib/documentation_links';
 import { ConfirmModal } from '../confirm_modal';
 import { Link } from '../link';
 import { Paginate } from '../paginate';
@@ -67,7 +68,9 @@ export class WorkpadLoader extends React.PureComponent {
   componentWillReceiveProps(newProps) {
     // the workpadId prop will change when a is created or loaded, close the toolbar when it does
     const { workpadId, onClose } = this.props;
-    if (workpadId !== newProps.workpadId) onClose();
+    if (workpadId !== newProps.workpadId) {
+      onClose();
+    }
   }
 
   componentWillUnmount() {
@@ -179,6 +182,7 @@ export class WorkpadLoader extends React.PureComponent {
 
           return (
             <Link
+              data-test-subj="canvasWorkpadLoaderWorkpad"
               name="loadWorkpad"
               params={{ id: workpad.id }}
               aria-label={`Load workpad ${workpadName}`}
@@ -246,6 +250,7 @@ export class WorkpadLoader extends React.PureComponent {
             isSelectable
             selection={selection}
             className="canvasWorkpad__dropzoneTable"
+            data-test-subj="canvasWorkpadLoaderTable"
           />
           <EuiSpacer />
           <EuiFlexGroup gutterSize="none" justifyContent="flexEnd">
@@ -357,7 +362,7 @@ export class WorkpadLoader extends React.PureComponent {
                     />
                   </EuiFlexItem>
                   <EuiFlexItem grow={false}>
-                    <EuiLink href="https://canvas.elastic.co" target="_blank">
+                    <EuiLink href={documentationLinks.canvas} target="_blank">
                       Docs
                     </EuiLink>
                   </EuiFlexItem>

@@ -66,12 +66,14 @@ export class WorkpadPage extends PureComponent {
       onMouseMove,
       onMouseUp,
       onAnimationEnd,
+      onWheel,
     } = this.props;
 
     return (
       <div
         key={page.id}
         id={page.id}
+        data-test-subj="canvasWorkpadPage"
         className={`canvasPage ${className} ${isEditable ? 'canvasPage--isEditable' : ''}`}
         data-shared-items-container
         style={{
@@ -88,12 +90,15 @@ export class WorkpadPage extends PureComponent {
         onKeyUp={onKeyUp}
         onDoubleClick={onDoubleClick}
         onAnimationEnd={onAnimationEnd}
+        onWheel={onWheel}
         tabIndex={0} // needed to capture keyboard events; focusing is also needed but React apparently does so implicitly
       >
         {elements
           .map(element => {
             if (element.type === 'annotation') {
-              if (!isEditable) return;
+              if (!isEditable) {
+                return;
+              }
               const props = {
                 key: element.id,
                 type: element.type,

@@ -15,7 +15,7 @@
 import _ from 'lodash';
 import $ from 'jquery';
 import DragSelect from 'dragselect';
-import moment from 'moment';
+import moment from 'moment-timezone';
 
 import 'plugins/ml/components/anomalies_table';
 import 'plugins/ml/components/controls';
@@ -76,6 +76,7 @@ module.controller('MlExplorerController', function (
   $timeout,
   AppState,
   Private,
+  config,
   mlCheckboxShowChartsService,
   mlSelectLimitService,
   mlSelectIntervalService,
@@ -86,6 +87,10 @@ module.controller('MlExplorerController', function (
   $scope.loading = true;
   timefilter.enableTimeRangeSelector();
   timefilter.enableAutoRefreshSelector();
+
+  // Pass the timezone to the server for use when aggregating anomalies (by day / hour) for the table.
+  const tzConfig = config.get('dateFormat:tz');
+  const dateFormatTz = (tzConfig !== 'Browser') ? tzConfig : moment.tz.guess();
 
   const TimeBuckets = Private(IntervalHelperProvider);
   const queryFilter = Private(FilterBarQueryFilterProvider);
@@ -392,9 +397,13 @@ module.controller('MlExplorerController', function (
 
   $scope.initializeVis();
 
-  $scope.showViewBySwimlane = function () {
-    return $scope.viewBySwimlaneData !== null && $scope.viewBySwimlaneData.laneLabels && $scope.viewBySwimlaneData.laneLabels.length > 0;
-  };
+  function setShowViewBySwimlane() {
+    $scope.showViewBySwimlane = (
+      $scope.viewBySwimlaneData !== null &&
+      $scope.viewBySwimlaneData.laneLabels &&
+      $scope.viewBySwimlaneData.laneLabels.length > 0
+    );
+  }
 
   function getSelectionTimeRange(cellData) {
     // Returns the time range of the cell(s) currently selected in the swimlane.
@@ -629,7 +638,7 @@ module.controller('MlExplorerController', function (
       });
   }
 
-  function loadViewBySwimlaneOptions() {
+  function setViewBySwimlaneOptions() {
     // Obtain the list of 'View by' fields per job.
     $scope.swimlaneViewByFieldName = null;
     let viewByOptions = [];   // Unique influencers for the selected job(s).
@@ -727,9 +736,6 @@ module.controller('MlExplorerController', function (
       $scope.appState.mlExplorerSwimlane.viewBy = $scope.swimlaneViewByFieldName;
       $scope.appState.save();
     }
-
-    loadViewBySwimlane([]);
-
   }
 
   function loadOverallData() {
@@ -776,7 +782,7 @@ module.controller('MlExplorerController', function (
 
         // Trigger loading of the 'view by' swimlane -
         // only load once the overall swimlane so that we can match the time span.
-        loadViewBySwimlaneOptions();
+        setViewBySwimlaneOptions();
       } else {
         $scope.hasResults = false;
       }
@@ -785,8 +791,8 @@ module.controller('MlExplorerController', function (
       // Tell the result components directives to render.
       // Need to use $timeout to ensure the broadcast happens after the child scope is updated with the new data.
       $timeout(() => {
-        $scope.$broadcast('render');
         mlExplorerDashboardService.swimlaneDataChange.changed(mapScopeToSwimlaneProps(SWIMLANE_TYPE.OVERALL));
+        loadViewBySwimlane([]);
       }, 0);
     });
 
@@ -846,6 +852,7 @@ module.controller('MlExplorerController', function (
       }
       // Fire event to indicate swimlane data has changed.
       // Need to use $timeout to ensure this happens after the child scope is updated with the new data.
+      setShowViewBySwimlane();
       $timeout(() => {
         mlExplorerDashboardService.swimlaneDataChange.changed(mapScopeToSwimlaneProps(SWIMLANE_TYPE.VIEW_BY));
       }, 0);
@@ -945,6 +952,7 @@ module.controller('MlExplorerController', function (
       mlSelectSeverityService.state.get('threshold').val,
       timeRange.earliestMs,
       timeRange.latestMs,
+      dateFormatTz,
       500,
       MAX_CATEGORY_EXAMPLES
     ).then((resp) => {
@@ -999,28 +1007,32 @@ module.controller('MlExplorerController', function (
     // would fail because the Explorer Charts Container's directive wasn't linked yet and not being subscribed
     // to the anomalyDataChange listener used in loadDataForCharts().
     function finish() {
-      if ($scope.overallSwimlaneData !== undefined) {
-        mlExplorerDashboardService.swimlaneDataChange.changed(mapScopeToSwimlaneProps(SWIMLANE_TYPE.OVERALL));
-      }
-      if ($scope.viewBySwimlaneData !== undefined) {
-        mlExplorerDashboardService.swimlaneDataChange.changed(mapScopeToSwimlaneProps(SWIMLANE_TYPE.VIEW_BY));
-      }
-      mlExplorerDashboardService.anomalyDataChange.changed($scope.anomalyChartRecords || [], timerange.earliestMs, timerange.latestMs);
+      setShowViewBySwimlane();
 
-      if (cellData !== undefined && cellData.fieldName === undefined) {
-        // Click is in one of the cells in the Overall swimlane - reload the 'view by' swimlane
-        // to show the top 'view by' values for the selected time.
-        loadViewBySwimlaneForSelectedTime(timerange.earliestMs, timerange.latestMs);
-        $scope.viewByLoadedForTimeFormatted = moment(timerange.earliestMs).format('MMMM Do YYYY, HH:mm');
-      }
+      $timeout(() => {
+        if ($scope.overallSwimlaneData !== undefined) {
+          mlExplorerDashboardService.swimlaneDataChange.changed(mapScopeToSwimlaneProps(SWIMLANE_TYPE.OVERALL));
+        }
+        if ($scope.viewBySwimlaneData !== undefined) {
+          mlExplorerDashboardService.swimlaneDataChange.changed(mapScopeToSwimlaneProps(SWIMLANE_TYPE.VIEW_BY));
+        }
+        mlExplorerDashboardService.anomalyDataChange.changed($scope.anomalyChartRecords || [], timerange.earliestMs, timerange.latestMs);
 
-      if (influencers.length === 0) {
-        loadTopInfluencers(jobIds, timerange.earliestMs, timerange.latestMs);
-        loadDataForCharts(jobIds, timerange.earliestMs, timerange.latestMs);
-      } else {
-        loadDataForCharts(jobIds, timerange.earliestMs, timerange.latestMs, influencers);
-      }
-      loadAnomaliesTableData();
+        if (cellData !== undefined && cellData.fieldName === undefined) {
+          // Click is in one of the cells in the Overall swimlane - reload the 'view by' swimlane
+          // to show the top 'view by' values for the selected time.
+          loadViewBySwimlaneForSelectedTime(timerange.earliestMs, timerange.latestMs);
+          $scope.viewByLoadedForTimeFormatted = moment(timerange.earliestMs).format('MMMM Do YYYY, HH:mm');
+        }
+
+        if (influencers.length === 0) {
+          loadTopInfluencers(jobIds, timerange.earliestMs, timerange.latestMs);
+          loadDataForCharts(jobIds, timerange.earliestMs, timerange.latestMs);
+        } else {
+          loadDataForCharts(jobIds, timerange.earliestMs, timerange.latestMs, influencers);
+        }
+        loadAnomaliesTableData();
+      }, 0);
     }
 
     if (isChartsContainerInitialized) {

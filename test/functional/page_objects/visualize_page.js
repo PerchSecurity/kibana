@@ -216,6 +216,10 @@ export function VisualizePageProvider({ getService, getPageObjects }) {
         defaultFindTimeout * 2);
     }
 
+    async clickDropPartialBuckets() {
+      return await testSubjects.click('dropPartialBucketsCheckbox');
+    }
+
     async setMarkdownTxt(markdownTxt) {
       const input = await testSubjects.find('markdownTextarea');
       await input.clearValue();
@@ -438,6 +442,9 @@ export function VisualizePageProvider({ getService, getPageObjects }) {
       await PageObjects.common.sleep(500);
     }
 
+    async applyFilters() {
+      return await testSubjects.click('filterBarApplyFilters');
+    }
     /**
      * Set the test for a filter aggregation.
      * @param {*} filterValue the string value of the filter
@@ -605,7 +612,8 @@ export function VisualizePageProvider({ getService, getPageObjects }) {
       await testSubjects.click(`aggregationEditor${agg} disableAggregationBtn`);
       await PageObjects.header.waitUntilLoadingHasFinished();
     }
-    async toggleAggegationEditor(agg) {
+
+    async toggleAggregationEditor(agg) {
       await testSubjects.click(`aggregationEditor${agg} toggleEditor`);
       await PageObjects.header.waitUntilLoadingHasFinished();
     }
@@ -649,7 +657,6 @@ export function VisualizePageProvider({ getService, getPageObjects }) {
       await PageObjects.header.waitUntilLoadingHasFinished();
     }
 
-
     async changeHeatmapColorNumbers(value = 6) {
       const input = await testSubjects.find(`heatmapOptionsColorsNumberInput`);
       await input.clearValue();
@@ -686,6 +693,7 @@ export function VisualizePageProvider({ getService, getPageObjects }) {
       toCell.clearValue();
       toCell.type(`${to}`);
     }
+
     async clickYAxisOptions(axisId) {
       await testSubjects.click(`toggleYAxisOptions-${axisId}`);
     }
@@ -945,8 +953,7 @@ export function VisualizePageProvider({ getService, getPageObjects }) {
      * If you are writing new tests, you should rather look into getTableVisContent method instead.
      */
     async getTableVisData() {
-      const dataTable = await testSubjects.find('paginated-table-body');
-      return await dataTable.getVisibleText();
+      return await testSubjects.getVisibleText('paginated-table-body');
     }
 
     /**
@@ -955,29 +962,31 @@ export function VisualizePageProvider({ getService, getPageObjects }) {
      * cell values into arrays. Please use this function for newer tests.
      */
     async getTableVisContent({ stripEmptyRows = true } = { }) {
-      const container = await testSubjects.find('tableVis');
-      const allTables = await testSubjects.findAllDescendant('paginated-table-body', container);
+      return await retry.try(async () => {
+        const container = await testSubjects.find('tableVis');
+        const allTables = await testSubjects.findAllDescendant('paginated-table-body', container);
 
-      if (allTables.length === 0) {
-        return [];
-      }
-
-      const allData = await Promise.all(allTables.map(async (t) => {
-        let data = await table.getDataFromElement(t);
-        if (stripEmptyRows) {
-          data = data.filter(row => row.length > 0 && row.some(cell => cell.trim().length > 0));
+        if (allTables.length === 0) {
+          return [];
         }
-        return data;
-      }));
 
-      if (allTables.length === 1) {
+        const allData = await Promise.all(allTables.map(async (t) => {
+          let data = await table.getDataFromElement(t);
+          if (stripEmptyRows) {
+            data = data.filter(row => row.length > 0 && row.some(cell => cell.trim().length > 0));
+          }
+          return data;
+        }));
+
+        if (allTables.length === 1) {
         // If there was only one table we return only the data for that table
         // This prevents an unnecessary array around that single table, which
         // is the case we have in most tests.
-        return allData[0];
-      }
+          return allData[0];
+        }
 
-      return allData;
+        return allData;
+      });
     }
 
     async getInspectorTableData() {
@@ -1147,11 +1156,13 @@ export function VisualizePageProvider({ getService, getPageObjects }) {
     }
 
     async filterOnTableCell(column, row) {
-      const table = await testSubjects.find('tableVis');
-      const cell = await table.findByCssSelector(`tbody tr:nth-child(${row}) td:nth-child(${column})`);
-      await remote.moveMouseTo(cell);
-      const filterBtn = await testSubjects.findDescendant('filterForCellValue', cell);
-      await filterBtn.click();
+      await retry.try(async () => {
+        const table = await testSubjects.find('tableVis');
+        const cell = await table.findByCssSelector(`tbody tr:nth-child(${row}) td:nth-child(${column})`);
+        await remote.moveMouseTo(cell);
+        const filterBtn = await testSubjects.findDescendant('filterForCellValue', cell);
+        await filterBtn.click();
+      });
     }
 
     async doesLegendColorChoiceExist(color) {

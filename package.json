@@ -11,7 +11,7 @@
     "dashboarding"
   ],
   "private": false,
-  "version": "6.5.1",
+  "version": "6.5.5",
   "branch": "6.5",
   "types": "./target/types/type_exports.d.ts",
   "build": {
@@ -41,6 +41,15 @@
     "Tim Sullivan <tim@elastic.co>",
     "Yuri Astrakhan <yuri@elastic.co>"
   ],
+  "kibana": {
+    "clean": {
+      "extraPatterns": [
+        "build",
+        "optimize",
+        ".eslintcache"
+      ]
+    }
+  },
   "scripts": {
     "preinstall": "node ./preinstall_check",
     "kbn": "node scripts/kbn",
@@ -205,7 +214,7 @@
     "symbol-observable": "^1.2.0",
     "tar": "2.2.0",
     "tinygradient": "0.3.0",
-    "tinymath": "1.1.0",
+    "tinymath": "1.1.1",
     "topojson-client": "3.0.0",
     "trunc-html": "1.0.2",
     "trunc-text": "1.0.2",
@@ -379,7 +388,7 @@
     "zlib": "^1.0.5"
   },
   "engines": {
-    "node": "8.11.4",
+    "node": "8.14.0",
     "yarn": "^1.10.1"
   }
 }

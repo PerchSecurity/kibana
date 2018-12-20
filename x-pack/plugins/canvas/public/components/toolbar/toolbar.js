@@ -32,6 +32,8 @@ export const Toolbar = props => {
     selectedPageNumber,
     workpadName,
     totalPages,
+    showWorkpadLoader,
+    setShowWorkpadLoader,
   } = props;
 
   const elementIsSelected = Boolean(selectedElement);
@@ -39,16 +41,21 @@ export const Toolbar = props => {
   const done = () => setTray(null);
 
   const showHideTray = exp => {
-    if (tray && tray === exp) return done();
+    if (tray && tray === exp) {
+      return done();
+    }
     setTray(exp);
   };
 
+  const closeWorkpadLoader = () => setShowWorkpadLoader(false);
+  const openWorkpadLoader = () => setShowWorkpadLoader(true);
+
   const workpadLoader = (
     <EuiOverlayMask>
-      <EuiModal onClose={done} className="canvasModal--fixedSize" maxWidth="1000px">
-        <WorkpadLoader onClose={done} />
+      <EuiModal onClose={closeWorkpadLoader} className="canvasModal--fixedSize" maxWidth="1000px">
+        <WorkpadLoader onClose={closeWorkpadLoader} />
         <EuiModalFooter>
-          <EuiButton size="s" onClick={done}>
+          <EuiButton size="s" onClick={closeWorkpadLoader}>
             Dismiss
           </EuiButton>
         </EuiModalFooter>
@@ -58,7 +65,6 @@ export const Toolbar = props => {
 
   const trays = {
     pageManager: <PageManager previousPage={previousPage} />,
-    workpadloader: workpadLoader,
     expression: !elementIsSelected ? null : <Expression done={done} />,
   };
 
@@ -68,11 +74,7 @@ export const Toolbar = props => {
       <Navbar>
         <EuiFlexGroup alignItems="center" gutterSize="none" className="canvasToolbar__controls">
           <EuiFlexItem grow={false}>
-            <EuiButtonEmpty
-              color="text"
-              iconType="grid"
-              onClick={() => showHideTray('workpadloader')}
-            >
+            <EuiButtonEmpty color="text" iconType="grid" onClick={() => openWorkpadLoader()}>
               {workpadName}
             </EuiButtonEmpty>
           </EuiFlexItem>
@@ -115,6 +117,8 @@ export const Toolbar = props => {
           )}
         </EuiFlexGroup>
       </Navbar>
+
+      {showWorkpadLoader && workpadLoader}
     </div>
   );
 };
@@ -128,4 +132,6 @@ Toolbar.propTypes = {
   selectedPageNumber: PropTypes.number.isRequired,
   totalPages: PropTypes.number.isRequired,
   selectedElement: PropTypes.object,
+  showWorkpadLoader: PropTypes.bool.isRequired,
+  setShowWorkpadLoader: PropTypes.func.isRequired,
 };
