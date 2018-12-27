@@ -62,6 +62,13 @@ export function proxyHandler(getUri) {
 proxyHandler.handle = (getUri, req, reply) => {
   getUri(req, (err, url, headers) => {
     headers = Hoek.merge(req.headers, headers);
+
+    /*
+    If we don't remove the content-length the payload gets cut short and you receive the following error:
+      400 `The msearch request must be terminated by a newline [\n]`
+    */
+    delete headers['content-length'];
+
     const options = {
       payload: req.payload,
       headers
