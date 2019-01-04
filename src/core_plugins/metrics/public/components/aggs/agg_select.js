@@ -1,5 +1,27 @@
-import React, { PropTypes, Component } from 'react';
-import Select from 'react-select';
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import PropTypes from 'prop-types';
+import React from 'react';
+import {
+  EuiComboBox,
+} from '@elastic/eui';
 
 const metricAggs = [
   { label: 'Average', value: 'avg' },
@@ -14,18 +36,18 @@ const metricAggs = [
   { label: 'Std. Deviation', value: 'std_deviation' },
   { label: 'Sum', value: 'sum' },
   { label: 'Sum of Squares', value: 'sum_of_squares' },
+  { label: 'Top Hit', value: 'top_hit' },
   { label: 'Value Count', value: 'value_count' },
-  { label: 'Variance', value: 'variance' }
+  { label: 'Variance', value: 'variance' },
 ];
 
 const pipelineAggs = [
-  { label: 'Calculation', value: 'calculation' },
+  { label: 'Bucket Script', value: 'calculation' },
   { label: 'Cumulative Sum', value: 'cumulative_sum' },
   { label: 'Derivative', value: 'derivative' },
   { label: 'Moving Average', value: 'moving_average' },
   { label: 'Positive Only', value: 'positive_only' },
   { label: 'Serial Difference', value: 'serial_diff' },
-  { label: 'Series Agg', value: 'series_agg' }
 ];
 
 const siblingAggs = [
@@ -35,90 +57,39 @@ const siblingAggs = [
   { label: 'Overall Std. Deviation', value: 'std_deviation_bucket' },
   { label: 'Overall Sum', value: 'sum_bucket' },
   { label: 'Overall Sum of Squares', value: 'sum_of_squares_bucket' },
-  { label: 'Overall Variance', value: 'variance_bucket' }
+  { label: 'Overall Variance', value: 'variance_bucket' },
 ];
 
-class AggSelectOption extends Component {
+const specialAggs = [
+  { label: 'Series Agg', value: 'series_agg' },
+  { label: 'Math', value: 'math' },
+];
 
-  constructor(props) {
-    super(props);
-    this.handleMouseMove = this.handleMouseMove.bind(this);
-    this.handleMouseEnter = this.handleMouseEnter.bind(this);
-    this.handleMouseDown = this.handleMouseDown.bind(this);
-  }
+const allAggOptions = [
+  ...metricAggs,
+  ...pipelineAggs,
+  ...siblingAggs,
+  ...specialAggs
+];
 
-  handleMouseDown(event) {
-    event.preventDefault();
-    event.stopPropagation();
-    this.props.onSelect(this.props.option, event);
-  }
-
-  handleMouseEnter(event) {
-    this.props.onFocus(this.props.option, event);
-  }
-
-  handleMouseMove(event) {
-    if (this.props.isFocused) return;
-    this.props.onFocus(this.props.option, event);
-  }
-
-  render() {
-    const { label, heading, pipeline } = this.props.option;
-    const style = {
-      paddingLeft: heading ? 0 : 10
-    };
-    if (heading) {
-      let note;
-      if (pipeline) {
-        note = (<span className="vis_editor__agg_select-note">(requires child aggregation)</span>);
-      }
-      return (
-        <div
-          className="Select-option vis_editor__agg_select-heading"
-          onMouseEnter={this.handleMouseEnter}
-          onMouseDown={this.handleMouseDown}
-          onMouseMove={this.handleMouseMove}
-          ariaLabel={label}
-        >
-          <span className="Select-value-label" style={style}>
-            <strong>{label}</strong>
-            {note}
-          </span>
-        </div>
-      );
-    }
-    return (
-      <div
-        className={this.props.className}
-        onMouseEnter={this.handleMouseEnter}
-        onMouseDown={this.handleMouseDown}
-        onMouseMove={this.handleMouseMove}
-        ariaLabel={label}
-      >
-        <span className="Select-value-label" style={style}>
-          { this.props.children }
-        </span>
-      </div>
-    );
-  }
-
+function filterByPanelType(panelType) {
+  return agg => {
+    if (panelType === 'table') return agg.value !== 'series_agg';
+    return true;
+  };
 }
 
-AggSelectOption.props = {
-  children: PropTypes.node,
-  className: PropTypes.string,
-  isDisabled: PropTypes.bool,
-  isFocused: PropTypes.bool,
-  isSelected: PropTypes.bool,
-  onFocus: PropTypes.func,
-  onSelect: PropTypes.func,
-  option: PropTypes.object.isRequired,
-};
-
 function AggSelect(props) {
-  const { siblings, panelType } = props;
+  const { siblings, panelType, value } = props;
 
-  let enablePipelines = siblings.some(s => !!metricAggs.find(m => m.value === s.type));
+  const selectedOption = allAggOptions.find(option => {
+    return value === option.value;
+  });
+  const selectedOptions = selectedOption ? [selectedOption] : [];
+
+  let enablePipelines = siblings.some(
+    s => !!metricAggs.find(m => m.value === s.type)
+  );
   if (siblings.length <= 1) enablePipelines = false;
 
   let options;
@@ -126,28 +97,42 @@ function AggSelect(props) {
     options = metricAggs;
   } else {
     options = [
-      { label: 'Metric Aggregations', value: null, heading: true, disabled: true },
-      ...metricAggs,
-      { label: 'Parent Pipeline Aggregations', value: null, pipeline: true, heading: true, disabled: true },
-      ...pipelineAggs.map(agg => ({ ...agg, disabled: !enablePipelines })),
-      { label: 'Sibling Pipeline Aggregations', value: null, pipeline: true, heading: true, disabled: true },
-      ...siblingAggs.map(agg => ({ ...agg, disabled: !enablePipelines }))
+      {
+        label: 'Metric Aggregations',
+        options: metricAggs,
+      },
+      {
+        label: 'Parent Pipeline Aggregations',
+        options: pipelineAggs
+          .filter(filterByPanelType(panelType))
+          .map(agg => ({ ...agg, disabled: !enablePipelines }))
+      },
+      {
+        label: 'Sibling Pipeline Aggregations',
+        options: siblingAggs.map(agg => ({ ...agg, disabled: !enablePipelines })),
+      },
+      {
+        label: 'Special Aggregations',
+        options: specialAggs.map(agg => ({ ...agg, disabled: !enablePipelines })),
+      },
     ];
   }
 
-  const handleChange = (value) => {
-    if (value.disabled) return;
-    if (value.value) props.onChange(value);
+  const handleChange = selectedOptions => {
+    if (!selectedOptions || selectedOptions.length <= 0) return;
+    props.onChange(selectedOptions);
   };
 
   return (
-    <div className="vis_editor__row_item">
-      <Select
-        clearable={false}
+    <div data-test-subj="aggSelector" className="vis_editor__row_item">
+      <EuiComboBox
+        isClearable={false}
+        placeholder="Select aggregation"
         options={options}
-        value={props.value}
-        optionComponent={AggSelectOption}
-        onChange={handleChange}/>
+        selectedOptions={selectedOptions}
+        onChange={handleChange}
+        singleSelection={true}
+      />
     </div>
   );
 }
@@ -156,7 +141,7 @@ AggSelect.propTypes = {
   onChange: PropTypes.func,
   panelType: PropTypes.string,
   siblings: PropTypes.array,
-  value: PropTypes.string
+  value: PropTypes.string,
 };
 
 export default AggSelect;

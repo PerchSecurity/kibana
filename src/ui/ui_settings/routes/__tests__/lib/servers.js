@@ -1,19 +1,54 @@
-import { createEsTestCluster } from '../../../../../test_utils/es';
-import * as kbnTestServer from '../../../../../test_utils/kbn_server';
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import { startTestServers } from '../../../../../test_utils/kbn_server';
 
 let kbnServer;
 let services;
-const es = createEsTestCluster({
-  name: 'ui_settings/routes'
-});
+let servers;
 
 export async function startServers() {
-  this.timeout(es.getStartTimeout());
-  await es.start();
+  servers = await startTestServers({
+    adjustTimeout: (t) => this.timeout(t),
+    settings: {
+      uiSettings: {
+        overrides: {
+          foo: 'bar',
+        }
+      },
+    }
+  });
+  kbnServer = servers.kbnServer;
+}
 
-  kbnServer = kbnTestServer.createServerWithCorePlugins();
-  await kbnServer.ready();
-  await kbnServer.server.plugins.elasticsearch.waitUntilReady();
+async function deleteKibanaIndex(callCluster) {
+  const kibanaIndices = await callCluster('cat.indices', { index: '.kibana*', format: 'json' });
+  const indexNames = kibanaIndices.map(x => x.index);
+  if (!indexNames.length) {
+    return;
+  }
+  await callCluster('indices.putSettings', {
+    index: indexNames,
+    body: { index: { blocks: { read_only: false } } },
+  });
+  await callCluster('indices.delete', { index: indexNames });
+  return indexNames;
 }
 
 export function getServices() {
@@ -21,11 +56,10 @@ export function getServices() {
     return services;
   }
 
-  const callCluster = es.getCallCluster();
+  const callCluster = servers.es.getCallCluster();
 
-  const savedObjectsClient = kbnServer.server.savedObjectsClientFactory({
-    callCluster,
-  });
+  const savedObjects = kbnServer.server.savedObjects;
+  const savedObjectsClient = savedObjects.getScopedSavedObjectsClient();
 
   const uiSettings = kbnServer.server.uiSettingsServiceFactory({
     savedObjectsClient,
@@ -35,7 +69,8 @@ export function getServices() {
     kbnServer,
     callCluster,
     savedObjectsClient,
-    uiSettings
+    uiSettings,
+    deleteKibanaIndex,
   };
 
   return services;
@@ -43,11 +78,8 @@ export function getServices() {
 
 export async function stopServers() {
   services = null;
-
-  if (kbnServer) {
-    await kbnServer.close();
-    kbnServer = null;
+  kbnServer = null;
+  if (servers) {
+    await servers.stop();
   }
-
-  await es.stop();
 }

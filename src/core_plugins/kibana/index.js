@@ -1,81 +1,74 @@
-import { resolve } from 'path';
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 
 import Promise from 'bluebird';
 import { mkdirp as mkdirpNode } from 'mkdirp';
 
 //import manageUuid from './server/lib/manage_uuid';
-//import ingest from './server/routes/api/ingest';
-import search from './server/routes/api/search';
-//import settings from './server/routes/api/settings';
-//import scripts from './server/routes/api/scripts';
-//import { importApi } from './server/routes/api/import';
-//import { exportApi } from './server/routes/api/export';
+import { searchApi } from './server/routes/api/search';
+import { scrollSearchApi } from './server/routes/api/scroll_search';
+import { importApi } from './server/routes/api/import';
+import { exportApi } from './server/routes/api/export';
+import { homeApi } from './server/routes/api/home';
+import { managementApi } from './server/routes/api/management';
+//import { scriptsApi } from './server/routes/api/scripts';
 import { registerSuggestionsApi } from './server/routes/api/suggestions';
+//import { registerKqlTelemetryApi } from './server/routes/api/kql_telemetry';
+import { registerFieldFormats } from './server/field_formats/register';
+//import { registerTutorials } from './server/tutorials/register';
 import * as systemApi from './server/lib/system_api';
+import handleEsError from './server/lib/handle_es_error';
 import mappings from './mappings.json';
 import { getUiSettingDefaults } from './ui_setting_defaults';
+//import { makeKQLUsageCollector } from './server/lib/kql_usage_collector';
+import { injectVars } from './inject_vars';
 
 const mkdirp = Promise.promisify(mkdirpNode);
 
-module.exports = function (kibana) {
+export default function (kibana) {
   const kbnBaseUrl = '/app/kibana';
   return new kibana.Plugin({
     id: 'kibana',
     config: function (Joi) {
       return Joi.object({
         enabled: Joi.boolean().default(true),
-        defaultAppId: Joi.string().default('discover'),
+        defaultAppId: Joi.string().default('home'),
         index: Joi.string().default('.kibana')
       }).default();
     },
 
     uiExports: {
       hacks: ['plugins/kibana/dev_tools/hacks/hide_empty_tools'],
+      fieldFormats: ['plugins/kibana/field_formats/register'],
+      savedObjectTypes: [
+        'plugins/kibana/visualize/saved_visualizations/saved_visualization_register',
+        'plugins/kibana/discover/saved_searches/saved_search_register',
+        'plugins/kibana/dashboard/saved_dashboard/saved_dashboard_register',
+      ],
       app: {
         id: 'kibana',
         title: 'Kibana',
         listed: false,
         description: 'the kibana you know and love',
         main: 'plugins/kibana/kibana',
-        uses: [
-          'visTypes',
-          'spyModes',
-          'fieldFormats',
-          'navbarExtensions',
-          'managementSections',
-          'devTools',
-          'docViews'
-        ],
-        injectVars: function (server) {
-
-          const serverConfig = server.config();
-
-          //DEPRECATED SETTINGS
-          //if the url is set, the old settings must be used.
-          //keeping this logic for backward compatibilty.
-          const configuredUrl = server.config().get('tilemap.url');
-          const isOverridden = typeof configuredUrl === 'string' && configuredUrl !== '';
-          const tilemapConfig = serverConfig.get('tilemap');
-          const regionmapsConfig = serverConfig.get('regionmap');
-          const mapConfig = serverConfig.get('map');
-
-
-          regionmapsConfig.layers =  (regionmapsConfig.layers) ? regionmapsConfig.layers : [];
-
-          return {
-            kbnDefaultAppId: serverConfig.get('kibana.defaultAppId'),
-            regionmapsConfig: regionmapsConfig,
-            mapConfig: mapConfig,
-            tilemapsConfig: {
-              deprecated: {
-                isOverridden: isOverridden,
-                config: tilemapConfig,
-              }
-            }
-          };
-        },
       },
-
+      styleSheetPaths: `${__dirname}/public/index.scss`,
       links: [
         {
           id: 'kibana:discover',
@@ -84,15 +77,19 @@ module.exports = function (kibana) {
           url: `${kbnBaseUrl}#/discover`,
           description: 'interactively explore your data',
           icon: 'plugins/kibana/assets/discover.svg',
-        },
+        }
+
         /* Comment out modules we don't want for perch use
         {
+          euiIconType: 'discoverApp',
+        }, {
           id: 'kibana:visualize',
           title: 'Visualize',
           order: -1002,
           url: `${kbnBaseUrl}#/visualize`,
           description: 'design data visualizations',
           icon: 'plugins/kibana/assets/visualize.svg',
+          euiIconType: 'visualizeApp',
         }, {
           id: 'kibana:dashboard',
           title: 'Dashboard',
@@ -107,7 +104,6 @@ module.exports = function (kibana) {
           description: 'compose visualizations for much win',
           icon: 'plugins/kibana/assets/dashboard.svg',
         },
-        */
         {
           id: 'kibana:dev_tools',
           title: 'Dev Tools',
@@ -116,18 +112,26 @@ module.exports = function (kibana) {
           description: 'development tools',
           icon: 'plugins/kibana/assets/wrench.svg'
         },
-        /*
         {
+          icon: 'plugins/kibana/assets/wrench.svg',
+          euiIconType: 'devToolsApp',
+        }, {
           id: 'kibana:management',
           title: 'Management',
           order: 9003,
           url: `${kbnBaseUrl}#/management`,
           description: 'define index patterns, change config, and more',
           icon: 'plugins/kibana/assets/settings.svg',
+          euiIconType: 'managementApp',
           linkToLastSubUrl: false
         },
         */
       ],
+      savedObjectSchemas: {
+        'kql-telemetry': {
+          isNamespaceAgnostic: true,
+        },
+      },
 
       injectDefaultVars(server, options) {
         return {
@@ -135,11 +139,7 @@ module.exports = function (kibana) {
           kbnBaseUrl
         };
       },
-
-      translations: [
-        resolve(__dirname, './translations/en.json')
-      ],
-
+      translations: [],
       mappings,
       uiSettingDefaults: getUiSettingDefaults(),
     },
@@ -160,14 +160,21 @@ module.exports = function (kibana) {
       // uuid
       //manageUuid(server);
       // routes
-      //ingest(server);
-      search(server);
-      //settings(server);
-      //scripts(server);
-      //importApi(server);
-      //exportApi(server);
+      searchApi(server);
+      //scriptsApi(server);
+      scrollSearchApi(server);
+      importApi(server);
+      exportApi(server);
+      homeApi(server);
+      //managementApi(server);
       registerSuggestionsApi(server);
+      //registerKqlTelemetryApi(server);
+      registerFieldFormats(server);
+      //registerTutorials(server);
+      //makeKQLUsageCollector(server);
       server.expose('systemApi', systemApi);
+      server.expose('handleEsError', handleEsError);
+      server.injectUiAppVars('kibana', () => injectVars(server));
     }
   });
 };

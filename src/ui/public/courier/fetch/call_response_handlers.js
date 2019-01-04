@@ -1,55 +1,69 @@
-import { RequestFailure, SearchTimeout, ShardFailure } from 'ui/errors';
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 
-import { ReqStatusProvider } from './req_status';
-import { CourierNotifierProvider } from './notifier';
+import { toastNotifications } from '../../notify';
+import { RequestFailure } from '../../errors';
+import { RequestStatus } from './req_status';
+import { SearchError } from '../search_strategy/search_error';
 
 export function CallResponseHandlersProvider(Private, Promise) {
-  const ABORTED = Private(ReqStatusProvider).ABORTED;
-  const INCOMPLETE = Private(ReqStatusProvider).INCOMPLETE;
-  const notify = Private(CourierNotifierProvider);
+  const ABORTED = RequestStatus.ABORTED;
+  const INCOMPLETE = RequestStatus.INCOMPLETE;
 
-
-  function callResponseHandlers(requests, responses) {
-    return Promise.map(requests, function (req, i) {
-      if (req === ABORTED || req.aborted) {
+  function callResponseHandlers(searchRequests, responses) {
+    return Promise.map(searchRequests, function (searchRequest, index) {
+      if (searchRequest === ABORTED || searchRequest.aborted) {
         return ABORTED;
       }
 
-      let resp = responses[i];
+      const response = responses[index];
 
-      if (resp.timed_out) {
-        notify.warning(new SearchTimeout());
+      if (response.timed_out) {
+        toastNotifications.addWarning({
+          title: 'Data might be incomplete because your request timed out',
+        });
       }
 
-      if (resp._shards && resp._shards.failed) {
-        notify.warning(new ShardFailure(resp));
+      if (response._shards && response._shards.failed) {
+        toastNotifications.addWarning({
+          title: `${response._shards.failed} of ${response._shards.total} shards failed`,
+        });
       }
 
       function progress() {
-        if (req.isIncomplete()) {
+        if (searchRequest.isIncomplete()) {
           return INCOMPLETE;
         }
 
-        req.complete();
-        return resp;
+        searchRequest.complete();
+        return response;
       }
 
-      if (resp.error) {
-        if (req.filterError(resp)) {
+      if (response.error) {
+        if (searchRequest.filterError(response)) {
           return progress();
         } else {
-          return req.handleFailure(new RequestFailure(null, resp));
+          return searchRequest.handleFailure(response.error instanceof SearchError ? response.error : new RequestFailure(null, response));
         }
       }
 
-      return Promise.try(function () {
-        return req.transformResponse(resp);
-      })
-      .then(function () {
-        resp = arguments[0];
-        return req.handleResponse(resp);
-      })
-      .then(progress);
+      return Promise.try(() => searchRequest.handleResponse(response)).then(progress);
     });
   }
 

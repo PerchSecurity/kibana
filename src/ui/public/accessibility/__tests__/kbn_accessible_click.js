@@ -1,12 +1,28 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import angular from 'angular';
 import sinon from 'sinon';
 import expect from 'expect.js';
 import ngMock from 'ng_mock';
 import '../kbn_accessible_click';
-import {
-  ENTER_KEY,
-  SPACE_KEY,
-} from 'ui_framework/services';
+import { keyCodes } from '@elastic/eui';
 
 describe('kbnAccessibleClick directive', () => {
   let $compile;
@@ -92,14 +108,14 @@ describe('kbnAccessibleClick directive', () => {
 
     it(`on ENTER keyup`, () => {
       const e = angular.element.Event('keyup'); // eslint-disable-line new-cap
-      e.keyCode = ENTER_KEY;
+      e.keyCode = keyCodes.ENTER;
       element.trigger(e);
       sinon.assert.calledOnce(scope.handleClick);
     });
 
     it(`on SPACE keyup`, () => {
       const e = angular.element.Event('keyup'); // eslint-disable-line new-cap
-      e.keyCode = SPACE_KEY;
+      e.keyCode = keyCodes.SPACE;
       element.trigger(e);
       sinon.assert.calledOnce(scope.handleClick);
     });

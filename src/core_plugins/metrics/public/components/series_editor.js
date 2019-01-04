@@ -1,4 +1,24 @@
-import React, { Component, PropTypes } from 'react';
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import PropTypes from 'prop-types';
+import React, { Component } from 'react';
 import reIdSeries from './lib/re_id_series';
 import Series from './series';
 import {
@@ -14,6 +34,7 @@ class SeriesEditor extends Component {
   constructor(props) {
     super(props);
     this.renderRow = this.renderRow.bind(this);
+    this.sortSeries = this.sortSeries.bind(this);
   }
 
   handleClone(series) {
@@ -21,7 +42,21 @@ class SeriesEditor extends Component {
     handleAdd.call(null, this.props, () => newSeries);
   }
 
-  renderRow(row) {
+  sortSeries(index, direction, allSeries) {
+    const newIndex = index + (direction === 'up' ? -1 : 1);
+    if (newIndex < 0 || newIndex >= allSeries.length) {
+      // Don't do anything when series is already at the edge
+      return;
+    }
+
+    const newSeries = allSeries.slice(0);
+    const changeWithElement = allSeries[newIndex];
+    newSeries[newIndex] = allSeries[index];
+    newSeries[index] = changeWithElement;
+    this.props.onChange({ series: newSeries });
+  }
+
+  renderRow(row, index, allSeries) {
     const { props } = this;
     const { fields, model, name, limit, colorPicker } = props;
     return (
@@ -35,9 +70,11 @@ class SeriesEditor extends Component {
         onChange={handleChange.bind(null, props)}
         onClone={() => this.handleClone(row)}
         onDelete={handleDelete.bind(null, props, row)}
+        onShouldSortItem={(direction) => this.sortSeries(index, direction, allSeries)}
         model={row}
         panel={model}
-        sortData={row.id} />
+        sortData={row.id}
+      />
     );
   }
 
@@ -56,7 +93,8 @@ class SeriesEditor extends Component {
           dynamic={true}
           direction="vertical"
           onSort={handleSort}
-          sortHandle="vis_editor__sort">
+          sortHandle="vis_editor__sort"
+        >
           { series }
         </Sortable>
       </div>

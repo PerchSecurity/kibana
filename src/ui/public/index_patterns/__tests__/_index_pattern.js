@@ -1,21 +1,41 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import _ from 'lodash';
 import sinon from 'sinon';
 import ngMock from 'ng_mock';
 import expect from 'expect.js';
 import Promise from 'bluebird';
-import { DuplicateField } from 'ui/errors';
-import { IndexedArray } from 'ui/indexed_array';
+import { DuplicateField } from '../../errors';
+import { IndexedArray } from '../../indexed_array';
 import FixturesLogstashFieldsProvider from 'fixtures/logstash_fields';
 import { FixturesStubbedSavedObjectIndexPatternProvider } from 'fixtures/stubbed_saved_object_index_pattern';
-import { IndexPatternsIntervalsProvider } from 'ui/index_patterns/_intervals';
-import { IndexPatternProvider } from 'ui/index_patterns/_index_pattern';
+import { IndexPatternsIntervalsProvider } from '../_intervals';
+import { IndexPatternProvider } from '../_index_pattern';
 import NoDigestPromises from 'test_utils/no_digest_promises';
+import { toastNotifications } from '../../notify';
 
 import { FieldsFetcherProvider } from '../fields_fetcher_provider';
 import { StubIndexPatternsApiClientModule } from './stub_index_patterns_api_client';
 import { IndexPatternsApiClientProvider } from '../index_patterns_api_client_provider';
-import { IndexPatternsCalculateIndicesProvider } from '../_calculate_indices';
-import { SavedObjectsClientProvider } from 'ui/saved_objects';
+import { IsUserAwareOfUnsupportedTimePatternProvider } from '../unsupported_time_patterns';
+import { SavedObjectsClientProvider } from '../../saved_objects';
 
 describe('index pattern', function () {
   NoDigestPromises.activateForSuite();
@@ -27,20 +47,15 @@ describe('index pattern', function () {
   let savedObjectsResponse;
   const indexPatternId = 'test-pattern';
   let indexPattern;
-  let calculateIndices;
   let intervals;
   let indexPatternsApiClient;
   let defaultTimeField;
+  let isUserAwareOfUnsupportedTimePattern;
 
   beforeEach(ngMock.module('kibana', StubIndexPatternsApiClientModule, (PrivateProvider) => {
-    PrivateProvider.swap(IndexPatternsCalculateIndicesProvider, () => {
-      // stub calculateIndices
-      calculateIndices = sinon.stub().returns(Promise.resolve([
-          { index: 'foo', max: Infinity, min: -Infinity },
-          { index: 'bar', max: Infinity, min: -Infinity }
-      ]));
-
-      return calculateIndices;
+    isUserAwareOfUnsupportedTimePattern = sinon.stub().returns(false);
+    PrivateProvider.swap(IsUserAwareOfUnsupportedTimePatternProvider, () => {
+      return isUserAwareOfUnsupportedTimePattern;
     });
   }));
 
@@ -103,18 +118,9 @@ describe('index pattern', function () {
         expect(indexPattern).to.have.property('toString');
         expect(indexPattern).to.have.property('toJSON');
         expect(indexPattern).to.have.property('save');
-        expect(indexPattern).to.have.property('title');
-        expect(indexPattern).to.have.property('id');
 
         // properties
         expect(indexPattern).to.have.property('fields');
-      });
-    });
-
-    it('should have a title when there is no saved title', function () {
-      const id = 'foo';
-      return create(id, {}).then(function (indexPattern) {
-        expect(indexPattern.title).to.be(id);
       });
     });
   });
@@ -230,7 +236,7 @@ describe('index pattern', function () {
   });
 
   describe('popularizeField', function () {
-    it('should increment the poplarity count by default', function () {
+    it('should increment the popularity count by default', function () {
       const saveSpy = sinon.stub(indexPattern, 'save');
       indexPattern.fields.forEach(function (field, i) {
         const oldCount = field.count;
@@ -242,7 +248,7 @@ describe('index pattern', function () {
       });
     });
 
-    it('should increment the poplarity count', function () {
+    it('should increment the popularity count', function () {
       const saveSpy = sinon.stub(indexPattern, 'save');
       indexPattern.fields.forEach(function (field, i) {
         const oldCount = field.count;
@@ -255,7 +261,7 @@ describe('index pattern', function () {
       });
     });
 
-    it('should decrement the poplarity count', function () {
+    it('should decrement the popularity count', function () {
       indexPattern.fields.forEach(function (field) {
         const oldCount = field.count;
         const incrementAmount = 4;
@@ -311,53 +317,6 @@ describe('index pattern', function () {
         indexPattern.title = 'logstash-*';
         indexPattern.timeFieldName = defaultTimeField.name;
         indexPattern.intervalName = null;
-        indexPattern.notExpandable = false;
-      });
-
-      it('invokes calculateIndices with given start/stop times and sortOrder', async function () {
-        await indexPattern.toDetailedIndexList(1, 2, 'sortOrder');
-
-        const { title, timeFieldName } = indexPattern;
-
-        sinon.assert.calledOnce(calculateIndices);
-        expect(calculateIndices.getCall(0).args).to.eql([
-          title, timeFieldName, 1, 2, 'sortOrder'
-        ]);
-      });
-
-      it('is fulfilled by the result of calculateIndices', async function () {
-        const indexList = await indexPattern.toDetailedIndexList();
-        expect(indexList[0].index).to.equal('foo');
-        expect(indexList[1].index).to.equal('bar');
-      });
-    });
-
-    describe('when index pattern is a time-base wildcard but field_stats are not supported', function () {
-      beforeEach(function () {
-        calculateIndices.returns(Promise.reject({
-          message: '[illegal_argument_exception] request [/filebeat-**/_field_stats] contains unrecognized parameter: [level]',
-          statusCode: 400,
-        }));
-
-        indexPattern.id = 'randomID';
-        indexPattern.title = 'logstash-*';
-        indexPattern.timeFieldName = defaultTimeField.name;
-        indexPattern.intervalName = null;
-        indexPattern.notExpandable = false;
-      });
-
-      it('is fulfilled by title', async function () {
-        const indexList = await indexPattern.toDetailedIndexList();
-        expect(indexList.map(i => i.index)).to.eql([indexPattern.title]);
-      });
-    });
-
-    describe('when index pattern is a time-base wildcard that is configured not to expand', function () {
-      beforeEach(function () {
-        indexPattern.id = 'randomID';
-        indexPattern.title = 'logstash-*';
-        indexPattern.timeFieldName = defaultTimeField.name;
-        indexPattern.intervalName = null;
         indexPattern.notExpandable = true;
       });
 
@@ -404,17 +363,16 @@ describe('index pattern', function () {
 
       it('is fulfilled by the result of interval toIndexList', async function () {
         const indexList = await indexPattern.toIndexList();
-        expect(indexList[0]).to.equal('foo');
-        expect(indexList[1]).to.equal('bar');
+        expect(indexList).to.equal('foo,bar');
       });
 
       describe('with sort order', function () {
         it('passes the sort order to the intervals module', function () {
           return indexPattern.toIndexList(1, 2, 'SORT_DIRECTION')
-          .then(function () {
-            expect(intervals.toIndexList.callCount).to.be(1);
-            expect(intervals.toIndexList.getCall(0).args[4]).to.be('SORT_DIRECTION');
-          });
+            .then(function () {
+              expect(intervals.toIndexList.callCount).to.be(1);
+              expect(intervals.toIndexList.getCall(0).args[4]).to.be('SORT_DIRECTION');
+            });
         });
       });
     });
@@ -425,34 +383,12 @@ describe('index pattern', function () {
         indexPattern.title = 'logstash-*';
         indexPattern.timeFieldName = defaultTimeField.name;
         indexPattern.intervalName = null;
-        indexPattern.notExpandable = false;
-      });
-
-      it('invokes calculateIndices with given start/stop times and sortOrder', async function () {
-        await indexPattern.toIndexList(1, 2, 'sortOrder');
-        const { title, timeFieldName } = indexPattern;
-        expect(calculateIndices.calledWith(title, timeFieldName, 1, 2, 'sortOrder')).to.be(true);
-      });
-
-      it('is fulfilled by the result of calculateIndices', async function () {
-        const indexList = await indexPattern.toIndexList();
-        expect(indexList[0]).to.equal('foo');
-        expect(indexList[1]).to.equal('bar');
-      });
-    });
-
-    describe('when index pattern is a time-base wildcard that is configured not to expand', function () {
-      beforeEach(function () {
-        indexPattern.id = 'randomID';
-        indexPattern.title = 'logstash-*';
-        indexPattern.timeFieldName = defaultTimeField.name;
-        indexPattern.intervalName = null;
         indexPattern.notExpandable = true;
       });
 
       it('is fulfilled using the id', async function () {
         const indexList = await indexPattern.toIndexList();
-        expect(indexList).to.eql([indexPattern.title]);
+        expect(indexList).to.eql(indexPattern.title);
       });
     });
 
@@ -467,23 +403,8 @@ describe('index pattern', function () {
 
       it('is fulfilled by id', async function () {
         const indexList = await indexPattern.toIndexList();
-        expect(indexList).to.eql([indexPattern.title]);
+        expect(indexList).to.eql(indexPattern.title);
       });
-    });
-  });
-
-  describe('#isIndexExpansionEnabled()', function () {
-    it('returns true if notExpandable is false', function () {
-      indexPattern.notExpandable = false;
-      expect(indexPattern.isIndexExpansionEnabled()).to.be(true);
-    });
-    it('returns true if notExpandable is not defined', function () {
-      delete indexPattern.notExpandable;
-      expect(indexPattern.isIndexExpansionEnabled()).to.be(true);
-    });
-    it('returns false if notExpandable is true', function () {
-      indexPattern.notExpandable = true;
-      expect(indexPattern.isIndexExpansionEnabled()).to.be(false);
     });
   });
 
@@ -518,6 +439,49 @@ describe('index pattern', function () {
     it('returns false if id has no *', function () {
       indexPattern.title = 'foo';
       expect(indexPattern.isWildcard()).to.be(false);
+    });
+  });
+
+  describe('#isUnsupportedTimePattern()', () => {
+    it('returns true when intervalName is set', () => {
+      indexPattern.intervalName = 'something';
+      expect(indexPattern.isUnsupportedTimePattern()).to.be(true);
+    });
+    it('returns false otherwise', () => {
+      delete indexPattern.intervalName;
+      expect(indexPattern.isUnsupportedTimePattern()).to.be(false);
+    });
+  });
+
+  describe('unsupported time pattern warning', () => {
+    async function createUnsupportedTimePattern() {
+      return await create('randomID', {
+        attributes: {
+          title: 'pattern-id',
+          timeFieldName: '@timestamp',
+          intervalName: 'days',
+          fields: '[]'
+        }
+      });
+    }
+
+    it('logs a warning when the index pattern source includes `intervalName`', async () => {
+      await createUnsupportedTimePattern();
+      expect(toastNotifications.list).to.have.length(1);
+    });
+
+    it('does not notify if isUserAwareOfUnsupportedTimePattern() returns true', async () => {
+      // Ideally, _index_pattern.js shouldn't be tightly coupled to toastNotifications. Instead, it
+      // should notify its consumer of this state and the consumer should be responsible for
+      // notifying the user. This test verifies the side effect of the state until we can remove
+      // this coupling.
+
+      // Clear existing toasts.
+      toastNotifications.list.splice(0);
+
+      isUserAwareOfUnsupportedTimePattern.returns(true);
+      await createUnsupportedTimePattern();
+      expect(toastNotifications.list).to.have.length(0);
     });
   });
 });

@@ -1,122 +1,61 @@
-import { uiModules } from 'ui/modules';
-import '../services/executor';
-import createNewPanel from '../lib/create_new_panel';
-import '../directives/vis_editor';
-import _ from 'lodash';
-import angular from 'angular';
-import { FilterBarQueryFilterProvider } from 'ui/filter_bar/query_filter';
-const AUTO_APPLY_KEY = 'metrics_autoApply';
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 
-const app = uiModules.get('kibana/metrics_vis', ['kibana']);
-app.controller('MetricsEditorController', (
-  $location,
-  $element,
-  $scope,
-  Private,
-  timefilter,
-  localStorage,
-  metricsExecutor
-) => {
+import React from 'react';
+import { render, unmountComponentAtNode } from 'react-dom';
 
-  const autoApply = localStorage.get(AUTO_APPLY_KEY);
-  $scope.autoApply = autoApply != null ? autoApply : true;
-  $scope.embedded = $location.search().embed === 'true';
-  const queryFilter = Private(FilterBarQueryFilterProvider);
-  const createFetch = Private(require('../lib/fetch'));
-  const fetch = () => {
-    const fn = createFetch($scope);
-    return fn().then((resp) => {
-      $element.trigger('renderComplete');
-      return resp;
-    });
-  };
-  const fetchFields = Private(require('../lib/fetch_fields'));
-
-  const debouncedFetch = _.debounce(() => fetch(), 1000, {
-    leading: false,
-    trailing: true
-  });
-
-  const debouncedFetchFields = _.debounce(fetchFields($scope), 1000, {
-    leading: false,
-    trailing: true
-  });
-
-  // If the model doesn't exist we need to either intialize it with a copy from
-  // the $scope.vis._editableVis.params or create a new panel all together.
-  if (!$scope.model) {
-    if ($scope.vis._editableVis.params.id) {
-      $scope.model = _.assign({}, $scope.vis._editableVis.params);
-    } else {
-      $scope.model = createNewPanel();
-      angular.copy($scope.model, $scope.vis._editableVis.params);
+function ReactEditorControllerProvider(Private, config) {
+  class ReactEditorController {
+    constructor(el, savedObj) {
+      this.el = el;
+      this.savedObj = savedObj;
+      this.vis = savedObj.vis;
     }
-    fetch();
+
+    async render(params) {
+      const Component = this.vis.type.editorConfig.component;
+      render(<Component
+        config={config}
+        vis={this.vis}
+        savedObj={this.savedObj}
+        timeRange={params.timeRange}
+        renderComplete={() => {}}
+        isEditorMode={true}
+        appState={params.appState}
+      />, this.el);
+    }
+
+    resize() {
+      if (this.visData) {
+        this.render(this.visData);
+      }
+    }
+
+    destroy() {
+      unmountComponentAtNode(this.el);
+    }
   }
 
-  $scope.commit = () => {
-    fetch();
-    $scope.dirty = false;
+  return {
+    name: 'react_editor',
+    handler: ReactEditorController
   };
+}
 
-  $scope.toggleAutoApply = () => {
-    $scope.autoApply = !$scope.autoApply;
-    localStorage.set(AUTO_APPLY_KEY, $scope.autoApply);
-  };
-
-  $scope.$watchCollection('model', (newValue, oldValue) => {
-    angular.copy(newValue, $scope.vis._editableVis.params);
-    $scope.stageEditableVis();
-    $scope.dirty = !_.isEqual(newValue, oldValue);
-
-    if ($scope.dirty && $scope.autoApply) {
-      debouncedFetch();
-      $scope.dirty = false;
-    }
-
-    const patternsToFetch = [];
-    // Fetch any missing index patterns
-    if (!$scope.fields[newValue.index_pattern]) {
-      patternsToFetch.push(newValue.index_pattern);
-    }
-
-    newValue.series.forEach(series => {
-      if (series.override_index_pattern &&
-        !$scope.fields[series.series_index_pattern]) {
-        patternsToFetch.push(series.series_index_pattern);
-      }
-    });
-
-    if (newValue.annotations) {
-      newValue.annotations.forEach(item => {
-        if (item.index_pattern &&
-          !$scope.fields[item.index_pattern]) {
-          patternsToFetch.push(item.index_pattern);
-        }
-      });
-    }
-
-    if(patternsToFetch.length) {
-      debouncedFetchFields(_.unique(patternsToFetch));
-    }
-  });
-
-  $scope.visData = {};
-  $scope.fields = {};
-  // All those need to be consolidated
-  $scope.$listen(queryFilter, 'fetch', fetch);
-  $scope.$on('fetch', fetch);
-
-  fetchFields($scope)($scope.model.index_pattern);
-
-  // Register fetch
-  metricsExecutor.register({ execute: fetch });
-
-  // Start the executor
-  metricsExecutor.start();
-
-  // Destory the executor
-  $scope.$on('$destroy', metricsExecutor.destroy);
-
-});
-
+export { ReactEditorControllerProvider };

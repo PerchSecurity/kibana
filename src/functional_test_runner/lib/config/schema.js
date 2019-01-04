@@ -1,3 +1,22 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import { resolve, dirname } from 'path';
 
 import Joi from 'joi';
@@ -5,15 +24,23 @@ import Joi from 'joi';
 // valid pattern for ID
 // enforced camel-case identifiers for consistency
 const ID_PATTERN = /^[a-zA-Z0-9_]+$/;
-const INSPECTING = process.execArgv.includes('--inspect');
+const INSPECTING = (
+  process.execArgv.includes('--inspect') ||
+  process.execArgv.includes('--inspect-brk')
+);
 
 const urlPartsSchema = () => Joi.object().keys({
   protocol: Joi.string().valid('http', 'https').default('http'),
   hostname: Joi.string().hostname().default('localhost'),
   port: Joi.number(),
-  auth: Joi.string().regex(/^[^:]+:.+$/, 'username and password seperated by a colon'),
+  auth: Joi.string().regex(/^[^:]+:.+$/, 'username and password separated by a colon'),
   username: Joi.string(),
   password: Joi.string(),
+  pathname: Joi.string().regex(/^\//, 'start with a /'),
+  hash: Joi.string().regex(/^\//, 'start with a /')
+}).default();
+
+const appUrlPartsSchema = () => Joi.object().keys({
   pathname: Joi.string().regex(/^\//, 'start with a /'),
   hash: Joi.string().regex(/^\//, 'start with a /')
 }).default();
@@ -33,6 +60,13 @@ export const schema = Joi.object().keys({
     otherwise: Joi.default([]),
   }),
 
+  excludeTestFiles: Joi.array().items(Joi.string()).default([]),
+
+  suiteTags: Joi.object().keys({
+    include: Joi.array().items(Joi.string()).default([]),
+    exclude: Joi.array().items(Joi.string()).default([]),
+  }).default(),
+
   services: Joi.object().pattern(
     ID_PATTERN,
     Joi.func().required()
@@ -46,7 +80,7 @@ export const schema = Joi.object().keys({
   timeouts: Joi.object().keys({
     find: Joi.number().default(10000),
     try: Joi.number().default(40000),
-    test: Joi.number().default(INSPECTING ? Infinity : 120000),
+    waitFor: Joi.number().default(20000),
     esRequestTimeout: Joi.number().default(30000),
     kibanaStabilize: Joi.number().default(15000),
     navigateStatusPageCheck: Joi.number().default(250),
@@ -55,15 +89,22 @@ export const schema = Joi.object().keys({
   mochaOpts: Joi.object().keys({
     bail: Joi.boolean().default(false),
     grep: Joi.string(),
+    invert: Joi.boolean().default(false),
     slow: Joi.number().default(30000),
-    timeout: Joi.number().default(60000),
+    timeout: Joi.number().default(INSPECTING ? Infinity : 180000),
     ui: Joi.string().default('bdd'),
   }).default(),
+
+  updateBaselines: Joi.boolean().default(false),
 
   junit: Joi.object().keys({
     enabled: Joi.boolean().default(!!process.env.CI),
     reportName: Joi.string(),
     rootDirectory: Joi.string(),
+  }).default(),
+
+  mochaReporter: Joi.object().keys({
+    captureLogOutput: Joi.boolean().default(!!process.env.CI),
   }).default(),
 
   users: Joi.object().pattern(
@@ -79,23 +120,50 @@ export const schema = Joi.object().keys({
     elasticsearch: urlPartsSchema(),
   }).default(),
 
+  esTestCluster: Joi.object().keys({
+    license: Joi.string().default('oss'),
+    from: Joi.string().default('snapshot'),
+    serverArgs: Joi.array(),
+  }).default(),
+
+  kbnTestServer: Joi.object().keys({
+    buildArgs: Joi.array(),
+    sourceArgs: Joi.array(),
+    serverArgs: Joi.array(),
+  }).default(),
+
   chromedriver: Joi.object().keys({
     url: Joi.string().uri({ scheme: /https?/ }).default('http://localhost:9515')
   }).default(),
 
+  firefoxdriver: Joi.object().keys({
+    url: Joi.string().uri({ scheme: /https?/ }).default('http://localhost:2828')
+  }).default(),
+
+
   // definition of apps that work with `common.navigateToApp()`
   apps: Joi.object().pattern(
     ID_PATTERN,
-    urlPartsSchema()
+    appUrlPartsSchema()
   ).default(),
 
   // settings for the esArchiver module
   esArchiver: Joi.object().keys({
-    directory: Joi.string().default(defaultRelativeToConfigPath('fixtures/es_archiver'))
+    directory: Joi.string().default(defaultRelativeToConfigPath('fixtures/es_archiver')),
+  }).default(),
+
+  // settings for the kibanaServer.uiSettings module
+  uiSettings: Joi.object().keys({
+    defaults: Joi.object().unknown(true)
   }).default(),
 
   // settings for the screenshots module
   screenshots: Joi.object().keys({
     directory: Joi.string().default(defaultRelativeToConfigPath('screenshots'))
+  }).default(),
+
+  // settings for the failureDebugging module
+  failureDebugging: Joi.object().keys({
+    htmlDirectory: Joi.string().default(defaultRelativeToConfigPath('failure_debug/html'))
   }).default(),
 }).default();

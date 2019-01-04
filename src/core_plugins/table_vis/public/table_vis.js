@@ -1,14 +1,33 @@
-import 'plugins/table_vis/table_vis.less';
-import 'plugins/table_vis/table_vis_controller';
-import 'plugins/table_vis/table_vis_params';
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import './table_vis_controller';
+import './table_vis_params';
 import 'ui/agg_table';
 import 'ui/agg_table/agg_table_group';
-import { VisVisTypeProvider } from 'ui/vis/vis_type';
-import { TemplateVisTypeProvider } from 'ui/template_vis_type/template_vis_type';
-import { VisSchemasProvider } from 'ui/vis/schemas';
-import tableVisTemplate from 'plugins/table_vis/table_vis.html';
+import { VisFactoryProvider } from 'ui/vis/vis_factory';
+import { CATEGORY } from 'ui/vis/vis_category';
+import { Schemas } from 'ui/vis/editors/default/schemas';
+import tableVisTemplate from './table_vis.html';
 import { VisTypesRegistryProvider } from 'ui/registry/vis_types';
-import image from './images/icon-table.svg';
+import { legacyTableResponseHandler } from './legacy_response_handler';
+
 // we need to load the css ourselves
 
 // we also need to load the controller and used by the template
@@ -22,27 +41,25 @@ VisTypesRegistryProvider.register(TableVisTypeProvider);
 
 // define the TableVisType
 function TableVisTypeProvider(Private) {
-  const VisType = Private(VisVisTypeProvider);
-  const TemplateVisType = Private(TemplateVisTypeProvider);
-  const Schemas = Private(VisSchemasProvider);
+  const VisFactory = Private(VisFactoryProvider);
 
   // define the TableVisController which is used in the template
   // by angular's ng-controller directive
 
   // return the visType object, which kibana will use to display and configure new
   // Vis object of this type.
-  return new TemplateVisType({
+  return VisFactory.createAngularVisualization({
+    type: 'table',
     name: 'table',
     title: 'Data Table',
-    image,
+    icon: 'visTable',
     description: 'Display values in a table',
-    category: VisType.CATEGORY.DATA,
-    template: tableVisTemplate,
-    params: {
+    category: CATEGORY.DATA,
+    visConfig: {
       defaults: {
         perPage: 10,
         showPartialRows: false,
-        showMeticsAtAllLevels: false,
+        showMetricsAtAllLevels: false,
         sort: {
           columnIndex: null,
           direction: null
@@ -50,34 +67,42 @@ function TableVisTypeProvider(Private) {
         showTotal: false,
         totalFunc: 'sum'
       },
-      editor: '<table-vis-params></table-vis-params>'
+      template: tableVisTemplate,
     },
-    implementsRenderComplete: true,
+    editorConfig: {
+      optionsTemplate: '<table-vis-params></table-vis-params>',
+      schemas: new Schemas([
+        {
+          group: 'metrics',
+          name: 'metric',
+          title: 'Metric',
+          aggFilter: ['!geo_centroid', '!geo_bounds'],
+          min: 1,
+          defaults: [
+            { type: 'count', schema: 'metric' }
+          ]
+        },
+        {
+          group: 'buckets',
+          name: 'bucket',
+          title: 'Split Rows',
+          aggFilter: ['!filter']
+        },
+        {
+          group: 'buckets',
+          name: 'split',
+          title: 'Split Table',
+          aggFilter: ['!filter']
+        }
+      ])
+    },
+    responseHandler: legacyTableResponseHandler,
+    responseHandlerConfig: {
+      asAggConfigResults: true
+    },
     hierarchicalData: function (vis) {
-      return Boolean(vis.params.showPartialRows || vis.params.showMeticsAtAllLevels);
-    },
-    schemas: new Schemas([
-      {
-        group: 'metrics',
-        name: 'metric',
-        title: 'Metric',
-        aggFilter: '!geo_centroid',
-        min: 1,
-        defaults: [
-          { type: 'count', schema: 'metric' }
-        ]
-      },
-      {
-        group: 'buckets',
-        name: 'bucket',
-        title: 'Split Rows'
-      },
-      {
-        group: 'buckets',
-        name: 'split',
-        title: 'Split Table'
-      }
-    ])
+      return Boolean(vis.params.showPartialRows || vis.params.showMetricsAtAllLevels);
+    }
   });
 }
 

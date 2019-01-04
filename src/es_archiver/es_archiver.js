@@ -1,15 +1,36 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import {
   saveAction,
   loadAction,
   unloadAction,
   rebuildAllAction,
+  emptyKibanaIndexAction,
 } from './actions';
 
 export class EsArchiver {
-  constructor({ client, dataDir, log }) {
+  constructor({ client, dataDir, log, kibanaUrl }) {
     this.client = client;
     this.dataDir = dataDir;
     this.log = log;
+    this.kibanaUrl = kibanaUrl;
   }
 
   /**
@@ -48,6 +69,7 @@ export class EsArchiver {
       client: this.client,
       dataDir: this.dataDir,
       log: this.log,
+      kibanaUrl: this.kibanaUrl,
     });
   }
 
@@ -63,6 +85,7 @@ export class EsArchiver {
       client: this.client,
       dataDir: this.dataDir,
       log: this.log,
+      kibanaUrl: this.kibanaUrl,
     });
   }
 
@@ -73,7 +96,7 @@ export class EsArchiver {
    *  @return Promise<Stats>
    */
   async rebuildAll() {
-    return rebuildAllAction({
+    return await rebuildAllAction({
       client: this.client,
       dataDir: this.dataDir,
       log: this.log
@@ -87,6 +110,19 @@ export class EsArchiver {
    *  @return Promise<Stats>
    */
   async loadIfNeeded(name) {
-    return this.load(name, { skipExisting: true });
+    return await this.load(name, { skipExisting: true });
+  }
+
+  /**
+   *  Delete any Kibana indices, and initialize the Kibana index as Kibana would do
+   *  on startup.
+   *
+   *  @return Promise
+   */
+  async emptyKibanaIndex() {
+    await emptyKibanaIndexAction({
+      client: this.client,
+      log: this.log,
+    });
   }
 }

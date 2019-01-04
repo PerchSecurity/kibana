@@ -1,146 +1,88 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import _ from 'lodash';
 
-import 'ui/es';
-import 'ui/promises';
-import 'ui/index_patterns';
-import { uiModules } from 'ui/modules';
-import { Notifier } from 'ui/notify/notifier';
+import { timefilter } from 'ui/timefilter';
 
-import { DocSourceProvider } from './data_source/doc_source';
-import { SearchSourceProvider } from './data_source/search_source';
-import { SearchStrategyProvider } from './fetch/strategy/search';
-import { RequestQueueProvider } from './_request_queue';
-import { FetchProvider } from './fetch';
-import { DocDataLooperProvider } from './looper/doc_data';
-import { SearchLooperProvider } from './looper/search';
-import { RootSearchSourceProvider } from './data_source/_root_search_source';
-import { SavedObjectProvider } from './saved_object';
-import { RedirectWhenMissingProvider } from './_redirect_when_missing';
+import '../es';
+import '../index_patterns';
+import { uiModules } from '../modules';
+import { addFatalErrorCallback } from '../notify';
+import '../promises';
 
+import { searchRequestQueue } from './search_request_queue';
+import { FetchSoonProvider } from './fetch';
+import { SearchPollProvider } from './search_poll';
 
-uiModules.get('kibana/courier')
-.service('courier', function ($rootScope, Private, Promise, indexPatterns) {
-  function Courier() {
-    const self = this;
+uiModules.get('kibana/courier').service('courier', ($rootScope, Private) => {
+  const fetchSoon = Private(FetchSoonProvider);
 
-    const DocSource = Private(DocSourceProvider);
-    const SearchSource = Private(SearchSourceProvider);
-    const searchStrategy = Private(SearchStrategyProvider);
+  // This manages the doc fetch interval.
+  const searchPoll = Private(SearchPollProvider);
 
-    const requestQueue = Private(RequestQueueProvider);
+  class Courier {
+    constructor() {
+      // Listen for refreshInterval changes
+      const updateRefreshInterval = () => {
+        const refreshIntervalMs = _.get(timefilter.getRefreshInterval(), 'value');
+        const isRefreshPaused = _.get(timefilter.getRefreshInterval(), 'pause');
 
-    const fetch = Private(FetchProvider);
-    const docDataLooper = self.docLooper = Private(DocDataLooperProvider);
-    const searchLooper = self.searchLooper = Private(SearchLooperProvider);
+        // Update the time between automatic search requests.
+        searchPoll.setIntervalInMs(refreshIntervalMs);
 
-    // expose some internal modules
-    self.setRootSearchSource = Private(RootSearchSourceProvider).set;
+        if (isRefreshPaused) {
+          searchPoll.pause();
+        } else {
+          searchPoll.resume();
+        }
+      };
 
-    self.SavedObject = Private(SavedObjectProvider);
-    self.indexPatterns = indexPatterns;
-    self.redirectWhenMissing = Private(RedirectWhenMissingProvider);
+      $rootScope.$listen(timefilter, 'refreshIntervalUpdate', updateRefreshInterval);
 
-    self.DocSource = DocSource;
-    self.SearchSource = SearchSource;
+      const closeOnFatal = _.once(() => {
+        // If there was a fatal error, then stop future searches. We want to use pause instead of
+        // clearTimer because if the search results come back after the fatal error then we'll
+        // resume polling.
+        searchPoll.pause();
 
-    /**
-     * update the time between automatic search requests
-     *
-     * @chainable
-     */
-    self.fetchInterval = function (ms) {
-      searchLooper.ms(ms);
-      return this;
-    };
+        // And abort all pending requests.
+        searchRequestQueue.abortAll();
 
-    /**
-     * Start fetching search requests on an interval
-     * @chainable
-     */
-    self.start = function () {
-      searchLooper.start();
-      docDataLooper.start();
-      return this;
-    };
-
-    /**
-     * Process the pending request queue right now, returns
-     * a promise that resembles the success of the fetch completing,
-     * individual errors are routed to their respective requests.
-     */
-    self.fetch = function () {
-      fetch.fetchQueued(searchStrategy).then(function () {
-        searchLooper.restart();
+        if (searchRequestQueue.getCount()) {
+          throw new Error('Aborting all pending requests failed.');
+        }
       });
-    };
 
-
-    /**
-     * is the currior currently fetching search
-     * results automatically?
-     *
-     * @return {boolean}
-     */
-    self.started = function () {
-      return searchLooper.started();
-    };
-
+      addFatalErrorCallback(closeOnFatal);
+      updateRefreshInterval();
+    }
 
     /**
-     * stop the courier from fetching more search
-     * results, does not stop vaidating docs.
-     *
-     * @chainable
+     * Fetch the pending requests.
      */
-    self.stop = function () {
-      searchLooper.stop();
-      return this;
-    };
-
-
-    /**
-     * create a source object that is a child of this courier
-     *
-     * @param {string} type - the type of Source to create
-     */
-    self.createSource = function (type) {
-      switch (type) {
-        case 'doc':
-          return new DocSource();
-        case 'search':
-          return new SearchSource();
-      }
-    };
-
-    /**
-     * Abort all pending requests
-     * @return {[type]} [description]
-     */
-    self.close = function () {
-      searchLooper.stop();
-      docDataLooper.stop();
-
-      _.invoke(requestQueue, 'abort');
-
-      if (requestQueue.length) {
-        throw new Error('Aborting all pending requests failed.');
-      }
-    };
-
-    // Listen for refreshInterval changes
-    $rootScope.$watchCollection('timefilter.refreshInterval', function () {
-      const refreshValue = _.get($rootScope, 'timefilter.refreshInterval.value');
-      const refreshPause = _.get($rootScope, 'timefilter.refreshInterval.pause');
-      if (_.isNumber(refreshValue) && !refreshPause) {
-        self.fetchInterval(refreshValue);
-      } else {
-        self.fetchInterval(0);
-      }
-    });
-
-    const onFatalDefer = Promise.defer();
-    onFatalDefer.promise.then(self.close);
-    Notifier.fatalCallbacks.push(onFatalDefer.resolve);
+    fetch() {
+      fetchSoon.fetchQueued().then(() => {
+        // Reset the timer using the time that we get this response as the starting point.
+        searchPoll.resetTimer();
+      });
+    }
   }
 
   return new Courier();

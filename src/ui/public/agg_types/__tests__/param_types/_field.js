@@ -1,43 +1,56 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import expect from 'expect.js';
 import { reject } from 'lodash';
 import ngMock from 'ng_mock';
 import FixturesStubbedLogstashIndexPatternProvider from 'fixtures/stubbed_logstash_index_pattern';
-import { AggTypesParamTypesBaseProvider } from 'ui/agg_types/param_types/base';
-import { AggTypesParamTypesFieldProvider } from 'ui/agg_types/param_types/field';
+import { BaseParamType } from '../../param_types/base';
+import { FieldParamType } from '../../param_types/field';
 
 describe('Field', function () {
 
-  let BaseAggParam;
-  let FieldAggParam;
   let indexPattern;
 
   beforeEach(ngMock.module('kibana'));
   // fetch out deps
   beforeEach(ngMock.inject(function (Private) {
-    BaseAggParam = Private(AggTypesParamTypesBaseProvider);
-    FieldAggParam = Private(AggTypesParamTypesFieldProvider);
     indexPattern = Private(FixturesStubbedLogstashIndexPatternProvider);
   }));
 
   describe('constructor', function () {
-    it('it is an instance of BaseAggParam', function () {
-      const aggParam = new FieldAggParam({
-        name: 'field'
+    it('it is an instance of BaseParamType', function () {
+      const aggParam = new FieldParamType({
+        name: 'field', type: 'field'
       });
 
-      expect(aggParam).to.be.a(BaseAggParam);
+      expect(aggParam).to.be.a(BaseParamType);
     });
   });
 
-  describe('getFieldOptions', function () {
+  describe('getAvailableFields', function () {
     it('should return only aggregatable fields by default', function () {
-      const aggParam = new FieldAggParam({
-        name: 'field'
+      const aggParam = new FieldParamType({
+        name: 'field', type: 'field'
       });
 
-      const fields = aggParam.getFieldOptions({
-        getIndexPattern: () => indexPattern
-      });
+      const fields = aggParam.getAvailableFields(indexPattern.fields);
       expect(fields).to.not.have.length(0);
       for (const field of fields) {
         expect(field.aggregatable).to.be(true);
@@ -45,15 +58,13 @@ describe('Field', function () {
     });
 
     it('should return all fields if onlyAggregatable is false', function () {
-      const aggParam = new FieldAggParam({
-        name: 'field'
+      const aggParam = new FieldParamType({
+        name: 'field', type: 'field'
       });
 
       aggParam.onlyAggregatable = false;
 
-      const fields = aggParam.getFieldOptions({
-        getIndexPattern: () => indexPattern
-      });
+      const fields = aggParam.getAvailableFields(indexPattern.fields);
       const nonAggregatableFields = reject(fields, 'aggregatable');
       expect(nonAggregatableFields).to.not.be.empty();
     });

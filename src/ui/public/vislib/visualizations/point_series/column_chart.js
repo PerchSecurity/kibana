@@ -1,3 +1,22 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import _ from 'lodash';
 import { VislibVisualizationsPointSeriesProvider } from './_point_series';
 
@@ -11,6 +30,22 @@ export function VislibVisualizationsColumnChartProvider(Private) {
     color: undefined,
     fillColor: undefined,
   };
+
+  /**
+   * Histogram intervals are not always equal widths, e.g, monthly time intervals.
+   * It is more visually appealing to vary bar width so that gutter width is constant.
+   */
+  function datumWidth(defaultWidth, datum, nextDatum, scale, gutterWidth, groupCount = 1) {
+    let datumWidth = defaultWidth;
+    if (nextDatum) {
+      datumWidth = ((scale(nextDatum.x) - scale(datum.x)) - gutterWidth) / groupCount;
+      // To handle data-sets with holes, do not let width be larger than default.
+      if (datumWidth > defaultWidth) {
+        datumWidth = defaultWidth;
+      }
+    }
+    return datumWidth;
+  }
 
   /**
    * Vertical Bar Chart Visualization: renders vertical and/or stacked bars
@@ -35,24 +70,24 @@ export function VislibVisualizationsColumnChartProvider(Private) {
       const isTooltip = this.handler.visConfig.get('tooltip.show');
 
       const layer = svg.append('g')
-      .attr('class', 'series histogram')
-      .attr('clip-path', 'url(#' + this.baseChart.clipPathId + ')');
+        .attr('class', 'series histogram')
+        .attr('clip-path', 'url(#' + this.baseChart.clipPathId + ')');
 
       const bars = layer.selectAll('rect')
-      .data(data.values.filter(function (d) {
-        return !_.isNull(d.y);
-      }));
+        .data(data.values.filter(function (d) {
+          return !_.isNull(d.y);
+        }));
 
       bars
-      .exit()
-      .remove();
+        .exit()
+        .remove();
 
       bars
-      .enter()
-      .append('rect')
-      .attr('data-label', data.label)
-      .attr('fill', () => color(data.label))
-      .attr('stroke', () => color(data.label));
+        .enter()
+        .append('rect')
+        .attr('data-label', data.label)
+        .attr('fill', () => color(data.label))
+        .attr('stroke', () => color(data.label));
 
       self.updateBars(bars);
 
@@ -93,23 +128,26 @@ export function VislibVisualizationsColumnChartProvider(Private) {
       const isHorizontal = this.getCategoryAxis().axisConfig.isHorizontal();
       const isTimeScale = this.getCategoryAxis().axisConfig.isTimeDomain();
       const yMin = yScale.domain()[0];
-      const groupSpacingPercentage = 0.15;
+      const gutterSpacingPercentage = 0.15;
       const groupCount = this.getGroupedCount();
       const groupNum = this.getGroupedNum(this.chartData);
-
       let barWidth;
+      let gutterWidth;
+
       if (isTimeScale) {
         const { min, interval } = this.handler.data.get('ordered');
-        let groupWidth = xScale(min + interval) - xScale(min);
-        groupWidth = Math.abs(groupWidth);
-        const groupSpacing = groupWidth * groupSpacingPercentage;
+        let intervalWidth = xScale(min + interval) - xScale(min);
+        intervalWidth = Math.abs(intervalWidth);
 
-        barWidth = (groupWidth - groupSpacing) / groupCount;
+        gutterWidth = intervalWidth * gutterSpacingPercentage;
+        barWidth = (intervalWidth - gutterWidth) / groupCount;
       }
 
-      function x(d) {
-        const groupPosition = isTimeScale ? barWidth * groupNum : xScale.rangeBand() / groupCount * groupNum;
-        return xScale(d.x) + groupPosition;
+      function x(d, i) {
+        if (isTimeScale) {
+          return xScale(d.x) + datumWidth(barWidth, d, bars.data()[i + 1], xScale, gutterWidth, groupCount) * groupNum;
+        }
+        return xScale(d.x) + xScale.rangeBand() / groupCount * groupNum;
       }
 
       function y(d) {
@@ -119,8 +157,11 @@ export function VislibVisualizationsColumnChartProvider(Private) {
         return yScale(d.y0 + d.y);
       }
 
-      function widthFunc() {
-        return isTimeScale ? barWidth : xScale.rangeBand() / groupCount;
+      function widthFunc(d, i) {
+        if (isTimeScale) {
+          return datumWidth(barWidth, d, bars.data()[i + 1], xScale, gutterWidth, groupCount);
+        }
+        return xScale.rangeBand() / groupCount;
       }
 
       function heightFunc(d) {
@@ -135,10 +176,10 @@ export function VislibVisualizationsColumnChartProvider(Private) {
 
       // update
       bars
-      .attr('x', isHorizontal ? x : y)
-      .attr('width', isHorizontal ? widthFunc : heightFunc)
-      .attr('y', isHorizontal ? y : x)
-      .attr('height', isHorizontal ? heightFunc : widthFunc);
+        .attr('x', isHorizontal ? x : y)
+        .attr('width', isHorizontal ? widthFunc : heightFunc)
+        .attr('y', isHorizontal ? y : x)
+        .attr('height', isHorizontal ? heightFunc : widthFunc);
 
       return bars;
     }
@@ -155,24 +196,25 @@ export function VislibVisualizationsColumnChartProvider(Private) {
       const yScale = this.getValueAxis().getScale();
       const groupCount = this.getGroupedCount();
       const groupNum = this.getGroupedNum(this.chartData);
-      const groupSpacingPercentage = 0.15;
+      const gutterSpacingPercentage = 0.15;
       const isTimeScale = this.getCategoryAxis().axisConfig.isTimeDomain();
       const isHorizontal = this.getCategoryAxis().axisConfig.isHorizontal();
       const isLogScale = this.getValueAxis().axisConfig.isLogScale();
       let barWidth;
+      let gutterWidth;
 
       if (isTimeScale) {
         const { min, interval } = this.handler.data.get('ordered');
-        let groupWidth = xScale(min + interval) - xScale(min);
-        groupWidth = Math.abs(groupWidth);
-        const groupSpacing = groupWidth * groupSpacingPercentage;
+        let intervalWidth = xScale(min + interval) - xScale(min);
+        intervalWidth = Math.abs(intervalWidth);
 
-        barWidth = (groupWidth - groupSpacing) / groupCount;
+        gutterWidth = intervalWidth * gutterSpacingPercentage;
+        barWidth = (intervalWidth - gutterWidth) / groupCount;
       }
 
-      function x(d) {
+      function x(d, i) {
         if (isTimeScale) {
-          return xScale(d.x) + barWidth * groupNum;
+          return xScale(d.x) + datumWidth(barWidth, d, bars.data()[i + 1], xScale, gutterWidth, groupCount) * groupNum;
         }
         return xScale(d.x) + xScale.rangeBand() / groupCount * groupNum;
       }
@@ -185,9 +227,9 @@ export function VislibVisualizationsColumnChartProvider(Private) {
         return yScale(d.y);
       }
 
-      function widthFunc() {
+      function widthFunc(d, i) {
         if (isTimeScale) {
-          return barWidth;
+          return datumWidth(barWidth, d, bars.data()[i + 1], xScale, gutterWidth, groupCount);
         }
         return xScale.rangeBand() / groupCount;
       }
@@ -199,10 +241,10 @@ export function VislibVisualizationsColumnChartProvider(Private) {
 
       // update
       bars
-      .attr('x', isHorizontal ? x : y)
-      .attr('width', isHorizontal ? widthFunc : heightFunc)
-      .attr('y', isHorizontal ? y : x)
-      .attr('height', isHorizontal ? heightFunc : widthFunc);
+        .attr('x', isHorizontal ? x : y)
+        .attr('width', isHorizontal ? widthFunc : heightFunc)
+        .attr('y', isHorizontal ? y : x)
+        .attr('height', isHorizontal ? heightFunc : widthFunc);
 
       return bars;
     }

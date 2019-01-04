@@ -5,17 +5,31 @@ It is mostly a mashup of these two files:
 https://github.com/elastic/kibana/blob/5.4/src/core_plugins/elasticsearch/lib/create_proxy.js
 https://github.com/hapijs/h2o2/blob/master/lib/index.js
 */
+import createAgent from './create_agent';
 import mapUri from './map_uri';
 import Wreck from 'wreck';
 import Hoek from 'hoek';
-import _ from 'lodash';
+import { assign, set } from 'lodash';
 
 
 export function createProxy(server, method, path, config) {
   const proxies = new Map([
     ['/elasticsearch', server.plugins.elasticsearch.getCluster('data')],
-    ['/es_admin', server.plugins.elasticsearch.getCluster('admin')]
   ]);
+
+  const responseHandler = function (err, upstreamResponse, request, reply) {
+    if (err) {
+      reply(err);
+      return;
+    }
+
+    if (upstreamResponse.headers.location) {
+      // TODO: Workaround for #8705 until hapi has been updated to >= 15.0.0
+      upstreamResponse.headers.location = encodeURI(upstreamResponse.headers.location);
+    }
+
+    reply(null, upstreamResponse);
+  };
 
   for (const [proxyPrefix, cluster] of proxies) {
     const options = {
@@ -29,12 +43,12 @@ export function createProxy(server, method, path, config) {
       handler: server.plugins.elasticsearch.proxyHandler(mapUri(cluster, proxyPrefix))
     };
 
+    // Perchybana specific safety. GET only.
     if (method !== 'GET' && method !== 'HEAD') {
-      //_.set(options, 'config.payload.output', 'stream');
-      _.set(options, 'config.payload.parse', false);
+      set(options, 'config.payload.parse', false);
     }
 
-    _.assign(options.config, config);
+    assign(options.config, config);
     server.route(options);
   }
 
@@ -48,6 +62,13 @@ export function proxyHandler(getUri) {
 proxyHandler.handle = (getUri, req, reply) => {
   getUri(req, (err, url, headers) => {
     headers = Hoek.merge(req.headers, headers);
+
+    /*
+    If we don't remove the content-length the payload gets cut short and you receive the following error:
+      400 `The msearch request must be terminated by a newline [\n]`
+    */
+    delete headers['content-length'];
+
     const options = {
       payload: req.payload,
       headers

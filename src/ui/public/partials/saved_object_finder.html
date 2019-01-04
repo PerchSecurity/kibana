@@ -9,12 +9,14 @@
         <input
           class="kuiSearchInput__input"
           input-focus
+          disable-input-focus="disableAutoFocus"
           ng-model="filter"
           ng-attr-placeholder="{{ finder.properties.nouns | label }} Filter..."
           ng-keydown="finder.filterKeyDown($event)"
           name="filter"
           type="text"
           autocomplete="off"
+          data-test-subj="savedObjectFinderSearchInput"
         >
       </div>
     </div>
@@ -26,7 +28,7 @@
 
       <div class="kuiButtonGroup">
         <button
-          class="kuiButton kuiButton--basic"
+          class="kuiButton kuiButton--primary"
           ng-if="onAddNew"
           ng-click="onAddNew()"
           data-test-subj="addNewSavedObjectLink"
@@ -35,7 +37,7 @@
         </button>
 
         <button
-          class="kuiButton kuiButton--basic"
+          class="kuiButton kuiButton--secondary"
           ng-if="!useLocalManagement"
           ng-click="finder.manageObjects(finder.properties.name)"
         >
@@ -51,16 +53,20 @@
   per-page="20"
   class="kuiVerticalRhythm"
 >
+  <button
+    class="paginate-heading list-group-item list-sort-button"
+    ng-click="finder.sortHits(finder.hits)"
+    aria-live="assertive"
+  >
+    <span class="kuiScreenReaderOnly">Sort by</span>
+    Name
+    <span
+      class="fa"
+      ng-class="finder.isAscending ? 'fa-caret-up' : 'fa-caret-down'">
+      <span class="kuiScreenReaderOnly">({{finder.isAscending ? 'ascending' : 'descending'}})</span>
+    </span>
+  </button>
   <ul class="li-striped list-group list-group-menu" ng-class="{'select-mode': finder.selector.enabled}">
-    <li class="list-group-item" ng-click="finder.sortHits(finder.hits)">
-      <span class="paginate-heading">
-        Name
-        <span
-          class="fa"
-          ng-class="finder.isAscending ? 'fa-caret-up' : 'fa-caret-down'">
-        </span>
-      </span>
-    </li>
     <li
       class="list-group-item list-group-menu-item"
       ng-class="{'active': finder.selector.index === $index && finder.selector.enabled}"
@@ -72,6 +78,7 @@
           ng-blur="finder.hitBlur($event)"
           ng-click="finder.preventClick($event)">
           <span aria-hidden="true" class="finder-type fa" ng-if="hit.icon" ng-class="hit.icon"></span>
+          <div class="kuiIcon fa-flask ng-scope" ng-if="hit.type.shouldMarkAsExperimentalInUI()"></div>
           <span>{{hit.title}}</span>
           <p ng-if="hit.description" ng-bind="hit.description"></p>
       </a>

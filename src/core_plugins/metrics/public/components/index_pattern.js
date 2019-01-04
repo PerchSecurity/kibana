@@ -1,59 +1,95 @@
-import React, { Component, PropTypes } from 'react';
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import PropTypes from 'prop-types';
+import React from 'react';
 import FieldSelect from './aggs/field_select';
 import createSelectHandler from './lib/create_select_handler';
 import createTextHandler from './lib/create_text_handler';
 import YesNo from './yes_no';
+import { htmlIdGenerator } from '@elastic/eui';
 
-class IndexPattern extends Component {
-  render() {
-    const { fields, prefix } = this.props;
-    const handleSelectChange = createSelectHandler(this.props.onChange);
-    const handleTextChange = createTextHandler(this.props.onChange);
-    const timeFieldName = `${prefix}time_field`;
-    const indexPatternName = `${prefix}index_pattern`;
-    const intervalName = `${prefix}interval`;
-    const dropBucketName = `${prefix}drop_last_bucket`;
+export const IndexPattern = props => {
+  const { fields, prefix } = props;
+  const handleSelectChange = createSelectHandler(props.onChange);
+  const handleTextChange = createTextHandler(props.onChange);
+  const timeFieldName = `${prefix}time_field`;
+  const indexPatternName = `${prefix}index_pattern`;
+  const intervalName = `${prefix}interval`;
+  const dropBucketName = `${prefix}drop_last_bucket`;
 
-    const defaults = {
-      [indexPatternName]: '*',
-      [intervalName]: 'auto',
-      [dropBucketName]: 1
-    };
+  const defaults = {
+    [indexPatternName]: '*',
+    [intervalName]: 'auto',
+    [dropBucketName]: 1
+  };
 
-    const model = { ...defaults, ...this.props.model };
-    return (
-      <div className={this.props.className}>
-        <div className="vis_editor__label">Index Pattern</div>
-        <input
-          className="vis_editor__input"
-          disabled={this.props.disabled}
-          onChange={handleTextChange(indexPatternName, '*')}
-          value={model[indexPatternName]}/>
-        <div className="vis_editor__label">Time Field</div>
-        <div className="vis_editor__index_pattern-fields">
-          <FieldSelect
-            restrict="date"
-            value={model[timeFieldName]}
-            disabled={this.props.disabled}
-            onChange={handleSelectChange(timeFieldName)}
-            indexPattern={model[indexPatternName]}
-            fields={fields}/>
-        </div>
-        <div className="vis_editor__label">Interval (auto, 1m, 1d, 1w, 1y)</div>
-        <input
-          className="vis_editor__input"
-          disabled={this.props.disabled}
-          onChange={handleTextChange(intervalName, 'auto')}
-          value={model[intervalName]}/>
-        <div className="vis_editor__label">Drop Last Bucket</div>
-        <YesNo
-          value={model[dropBucketName]}
-          name={dropBucketName}
-          onChange={this.props.onChange}/>
+  const htmlId = htmlIdGenerator();
+
+  const model = { ...defaults, ...props.model };
+  return (
+    <div className={props.className}>
+      <label className="vis_editor__label" htmlFor={htmlId('indexPattern')}>
+        Index Pattern
+      </label>
+      <input
+        id={htmlId('indexPattern')}
+        className="vis_editor__input"
+        disabled={props.disabled}
+        onChange={handleTextChange(indexPatternName, '*')}
+        value={model[indexPatternName]}
+        data-test-subj="metricsIndexPatternInput"
+      />
+      <label className="vis_editor__label" htmlFor={htmlId('timeField')}>
+        Time Field
+      </label>
+      <div className="vis_editor__index_pattern-fields">
+        <FieldSelect
+          id={htmlId('timeField')}
+          restrict="date"
+          value={model[timeFieldName]}
+          disabled={props.disabled}
+          onChange={handleSelectChange(timeFieldName)}
+          indexPattern={model[indexPatternName]}
+          fields={fields}
+          data-test-subj="metricsIndexPatternFieldsSelect"
+        />
       </div>
-    );
-  }
-}
+      <label className="vis_editor__label" htmlFor={htmlId('interval')}>
+        Interval (auto, 1m, 1d, 7d, 1y, &gt;=1m)
+      </label>
+      <input
+        id={htmlId('interval')}
+        className="vis_editor__input"
+        disabled={props.disabled}
+        onChange={handleTextChange(intervalName, 'auto')}
+        value={model[intervalName]}
+      />
+      <div className="vis_editor__label">Drop Last Bucket</div>
+      <YesNo
+        value={model[dropBucketName]}
+        name={dropBucketName}
+        onChange={props.onChange}
+      />
+    </div>
+  );
+};
 
 IndexPattern.defaultProps = {
   prefix: '',
@@ -69,5 +105,3 @@ IndexPattern.propTypes = {
   disabled: PropTypes.bool,
   className: PropTypes.string
 };
-
-export default IndexPattern;

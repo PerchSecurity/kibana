@@ -1,3 +1,22 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 export function HeaderPageProvider({ getService, getPageObjects }) {
   const config = getService('config');
   const remote = getService('remote');
@@ -13,28 +32,50 @@ export function HeaderPageProvider({ getService, getPageObjects }) {
 
     async clickSelector(selector) {
       log.debug(`clickSelector(${selector})`);
-      await retry.try(async () => await remote.findByCssSelector(selector).click());
+      await find.clickByCssSelector(selector);
+    }
+
+    async confirmTopNavTextContains(text) {
+      await retry.try(async () => {
+        const topNavText = await PageObjects.common.getTopNavText();
+        if (topNavText.toLowerCase().indexOf(text.toLowerCase()) < 0) {
+          throw new Error(`Top nav text ${topNavText} does not contain ${text} (case insensitive)`);
+        }
+      });
     }
 
     async clickDiscover() {
       log.debug('click Discover tab');
       await this.clickSelector('a[href*=\'discover\']');
       await PageObjects.common.waitForTopNavToBeVisible();
-      await this.isGlobalLoadingIndicatorHidden();
+      await this.awaitGlobalLoadingIndicatorHidden();
     }
 
     async clickVisualize() {
       log.debug('click Visualize tab');
       await this.clickSelector('a[href*=\'visualize\']');
       await PageObjects.common.waitForTopNavToBeVisible();
-      await this.isGlobalLoadingIndicatorHidden();
+      await this.awaitGlobalLoadingIndicatorHidden();
+      await this.confirmTopNavTextContains('visualize');
     }
 
     async clickDashboard() {
       log.debug('click Dashboard tab');
       await this.clickSelector('a[href*=\'dashboard\']');
-      await PageObjects.common.waitForTopNavToBeVisible();
-      await this.isGlobalLoadingIndicatorHidden();
+      await retry.try(async () => {
+        const isNavVisible = await testSubjects.exists('top-nav');
+        const isLandingPageVisible = await testSubjects.exists('dashboardLandingPage');
+        if (!isNavVisible && !isLandingPageVisible) {
+          throw new Error('Dashboard application not loaded yet');
+        }
+      });
+      await this.awaitGlobalLoadingIndicatorHidden();
+    }
+
+    async clickManagement() {
+      log.debug('click Management tab');
+      await this.clickSelector('a[href*=\'management\']');
+      await this.awaitGlobalLoadingIndicatorHidden();
     }
 
     async clickSettings() {
@@ -49,18 +90,12 @@ export function HeaderPageProvider({ getService, getPageObjects }) {
     async clickQuickButton() {
       await retry.try(async () => {
         remote.setFindTimeout(defaultFindTimeout);
-        await remote.findByLinkText('Quick').click();
+        await testSubjects.click('timepicker-quick-button');
       });
     }
 
     async isTimepickerOpen() {
-      remote.setFindTimeout(2000);
-      try {
-        await remote.findDisplayedByCssSelector('.kbn-timepicker');
-        return true;
-      } catch (error) {
-        return false;
-      }
+      return await testSubjects.exists('timePicker');
     }
 
     async isAbsoluteSectionShowing() {
@@ -74,8 +109,7 @@ export function HeaderPageProvider({ getService, getPageObjects }) {
       if (!isAbsoluteSectionShowing) {
         await retry.try(async () => {
           await remote.setFindTimeout(defaultFindTimeout);
-          const absoluteButton = await remote.findByLinkText('Absolute');
-          await absoluteButton.click();
+          await testSubjects.click('timepicker-absolute-button');
           // Check to make sure one of the elements on the absolute section is showing.
           await this.getFromTime();
         });
@@ -89,7 +123,7 @@ export function HeaderPageProvider({ getService, getPageObjects }) {
         await this.showAbsoluteSection();
         remote.setFindTimeout(defaultFindTimeout);
         return await remote.findByCssSelector('input[ng-model=\'absolute.from\']')
-        .getProperty('value');
+          .getProperty('value');
       });
     }
 
@@ -100,7 +134,7 @@ export function HeaderPageProvider({ getService, getPageObjects }) {
         await this.showAbsoluteSection();
         remote.setFindTimeout(defaultFindTimeout);
         return await remote.findByCssSelector('input[ng-model=\'absolute.to\']')
-        .getProperty('value');
+          .getProperty('value');
       });
     }
 
@@ -111,8 +145,8 @@ export function HeaderPageProvider({ getService, getPageObjects }) {
         await this.showAbsoluteSection();
         remote.setFindTimeout(defaultFindTimeout);
         await remote.findByCssSelector('input[ng-model=\'absolute.from\']')
-        .clearValue()
-        .type(timeString);
+          .clearValue()
+          .type(timeString);
       });
     }
 
@@ -123,8 +157,8 @@ export function HeaderPageProvider({ getService, getPageObjects }) {
         await this.showAbsoluteSection();
         remote.setFindTimeout(defaultFindTimeout);
         await remote.findByCssSelector('input[ng-model=\'absolute.to\']')
-        .clearValue()
-        .type(timeString);
+          .clearValue()
+          .type(timeString);
       });
     }
 
@@ -138,11 +172,14 @@ export function HeaderPageProvider({ getService, getPageObjects }) {
     }
 
     async ensureTimePickerIsOpen() {
+      log.debug('ensureTimePickerIsOpen');
       const isOpen = await this.isTimepickerOpen();
-      log.debug(`ensureTimePickerIsOpen: ${isOpen}`);
       if (!isOpen) {
-        log.debug('--Opening time picker');
-        await this.clickTimepicker();
+        await retry.try(async () => {
+          await this.clickTimepicker();
+          const isOpen = await this.isTimepickerOpen();
+          if (!isOpen) throw new Error('Time picker still not open, try again.');
+        });
       }
     }
 
@@ -156,7 +193,7 @@ export function HeaderPageProvider({ getService, getPageObjects }) {
       log.debug('--Setting To Time : ' + toTime);
       await this.setToTime(toTime);
       await this.clickGoButton();
-      await this.isGlobalLoadingIndicatorHidden();
+      await this.awaitGlobalLoadingIndicatorHidden();
     }
 
     async setQuickTime(quickTime) {
@@ -164,18 +201,39 @@ export function HeaderPageProvider({ getService, getPageObjects }) {
       log.debug('--Clicking Quick button');
       await this.clickQuickButton();
       await remote.setFindTimeout(defaultFindTimeout)
-      .findByLinkText(quickTime).click();
+        .findByLinkText(quickTime).click();
+    }
+
+    async getAutoRefreshState() {
+      return testSubjects.getAttribute('globalTimepickerAutoRefreshButton', 'data-test-subj-state');
+    }
+
+    // check if the auto refresh state is active and to pause it
+    async pauseAutoRefresh() {
+      let result = false;
+      if (await this.getAutoRefreshState() === 'active') {
+        await testSubjects.click('globalTimepickerAutoRefreshButton');
+        result = true;
+      }
+      return result;
+    }
+
+    // check if the auto refresh state is inactive and to resume it
+    async resumeAutoRefresh() {
+      let result = false;
+      if (await this.getAutoRefreshState() === 'inactive') {
+        await testSubjects.click('globalTimepickerAutoRefreshButton');
+        result = true;
+      }
+      return result;
     }
 
     async getToastMessage(findTimeout = defaultFindTimeout) {
       const toastMessage =
-        await find.displayedByCssSelector('kbn-truncated.toast-message.ng-isolate-scope', findTimeout);
-      return toastMessage.getVisibleText();
-    }
-
-    async waitForToastMessageGone() {
-      remote.setFindTimeout(defaultFindTimeout);
-      await remote.waitForDeletedByCssSelector('kbn-truncated.toast-message');
+        await find.displayedByCssSelector('kbn-truncated.toast-message', findTimeout);
+      const messageText = await toastMessage.getVisibleText();
+      log.debug(`getToastMessage: ${messageText}`);
+      return messageText;
     }
 
     async clickToastOK() {
@@ -183,7 +241,7 @@ export function HeaderPageProvider({ getService, getPageObjects }) {
       await retry.try(async () => {
         remote.setFindTimeout(defaultFindTimeout);
         await remote.findByCssSelector('button[ng-if="notif.accept"]')
-        .click();
+          .click();
       });
     }
 
@@ -197,28 +255,40 @@ export function HeaderPageProvider({ getService, getPageObjects }) {
           throw exception;
         }
       }
-      await this.isGlobalLoadingIndicatorHidden();
+      await this.awaitGlobalLoadingIndicatorHidden();
     }
 
     async isGlobalLoadingIndicatorVisible() {
-      return await testSubjects.find('globalLoadingIndicator', defaultFindTimeout / 5);
+      log.debug('isGlobalLoadingIndicatorVisible');
+      return await testSubjects.exists('globalLoadingIndicator');
     }
 
-    async isGlobalLoadingIndicatorHidden() {
-      remote.setFindTimeout(defaultFindTimeout * 10);
-      return await remote.findByCssSelector('[data-test-subj="globalLoadingIndicator"].ng-hide');
+    async awaitGlobalLoadingIndicatorHidden() {
+      log.debug('awaitGlobalLoadingIndicatorHidden');
+      await testSubjects.find('globalLoadingIndicator-hidden', defaultFindTimeout * 10);
+    }
+
+    async awaitKibanaChrome() {
+      log.debug('awaitKibanaChrome');
+      await testSubjects.find('kibanaChrome', defaultFindTimeout * 10);
+    }
+
+    async getGlobalNavigationLink(linkText) {
+      const nav = await testSubjects.find('globalNav');
+      return await nav.findByPartialLinkText(linkText);
+    }
+
+    async clickGlobalNavigationLink(appTitle) {
+      const link = await this.getGlobalNavigationLink(appTitle);
+      await link.click();
     }
 
     async getPrettyDuration() {
-      return await testSubjects.find('globalTimepickerRange').getVisibleText();
+      return await testSubjects.getVisibleText('globalTimepickerRange');
     }
 
     async isSharedTimefilterEnabled() {
-      const element = await remote
-      .setFindTimeout(defaultFindTimeout)
-      .findByCssSelector(`[shared-timefilter=true]`);
-
-      return !!element;
+      return await find.existsByCssSelector('[shared-timefilter=true]');
     }
   }
 

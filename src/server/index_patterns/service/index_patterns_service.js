@@ -1,8 +1,26 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import {
   getFieldCapabilities,
   resolveTimePattern,
   createNoMatchingIndicesError,
-  isNoMatchingIndicesError,
 } from './lib';
 
 export class IndexPatternsService {
@@ -14,7 +32,7 @@ export class IndexPatternsService {
    *  Get a list of field objects for an index pattern that may contain wildcards
    *
    *  @param {Object} [options={}]
-   *  @property {String} options.pattern The moment compatible time pattern
+   *  @property {String} options.pattern The index pattern
    *  @property {Number} options.metaFields The list of underscore prefixed fields that should
    *                                        be left in the field list (all others are removed).
    *  @return {Promise<Array<Fields>>}
@@ -22,33 +40,6 @@ export class IndexPatternsService {
   async getFieldsForWildcard(options = {}) {
     const { pattern, metaFields } = options;
     return await getFieldCapabilities(this._callDataCluster, pattern, metaFields);
-  }
-
-  /**
-   *  Convert a time pattern into a list of indexes it could
-   *  have matched and ones it did match.
-   *
-   *  @param {Object} [options={}]
-   *  @property {String} options.pattern The moment compatible time pattern
-   *  @return {Promise<Object>} object that lists the indices that match based
-   *                            on a wildcard version of the time pattern (all)
-   *                            and the indices that actually match the time
-   *                            pattern (matches);
-   */
-  async testTimePattern(options = {}) {
-    const { pattern } = options;
-    try {
-      return await resolveTimePattern(this._callDataCluster, pattern);
-    } catch (err) {
-      if (isNoMatchingIndicesError(err)) {
-        return {
-          all: [],
-          matches: []
-        };
-      }
-
-      throw err;
-    }
   }
 
   /**

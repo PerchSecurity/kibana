@@ -1,7 +1,27 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import _ from 'lodash';
-import 'ui/filters/short_dots';
-import headerHtml from 'ui/doc_table/components/table_header.html';
-import { uiModules } from 'ui/modules';
+import './table_header.less';
+import '../../filters/short_dots';
+import headerHtml from './table_header.html';
+import { uiModules } from '../../modules';
 const module = uiModules.get('app/discover');
 
 
@@ -18,7 +38,7 @@ module.directive('kbnTableHeader', function (shortDotsFilter) {
     },
     template: headerHtml,
     controller: function ($scope) {
-      const isSortableColumn = function isSortableColumn(columnName) {
+      $scope.isSortableColumn = function isSortableColumn(columnName) {
         return (
           !!$scope.indexPattern
           && _.isFunction($scope.onChangeSortOrder)
@@ -27,7 +47,7 @@ module.directive('kbnTableHeader', function (shortDotsFilter) {
       };
 
       $scope.tooltip = function (column) {
-        if (!isSortableColumn(column)) return '';
+        if (!$scope.isSortableColumn(column)) return '';
         return 'Sort by ' + shortDotsFilter(column);
       };
 
@@ -53,7 +73,7 @@ module.directive('kbnTableHeader', function (shortDotsFilter) {
       };
 
       $scope.headerClass = function (column) {
-        if (!isSortableColumn(column)) return;
+        if (!$scope.isSortableColumn(column)) return;
 
         const sortOrder = $scope.sortOrder;
         const defaultClass = ['fa', 'fa-sort-up', 'table-header-sortchange'];
@@ -83,18 +103,29 @@ module.directive('kbnTableHeader', function (shortDotsFilter) {
       };
 
       $scope.cycleSortOrder = function cycleSortOrder(columnName) {
-        if (!isSortableColumn(columnName)) {
+        if (!$scope.isSortableColumn(columnName)) {
           return;
         }
 
         const [currentColumnName, currentDirection = 'asc'] = $scope.sortOrder;
         const newDirection = (
           (columnName === currentColumnName && currentDirection === 'asc')
-          ? 'desc'
-          : 'asc'
+            ? 'desc'
+            : 'asc'
         );
 
         $scope.onChangeSortOrder(columnName, newDirection);
+      };
+
+      $scope.getAriaLabelForColumn = function getAriaLabelForColumn(name) {
+        if (!$scope.isSortableColumn(name)) return null;
+
+        const [currentColumnName, currentDirection = 'asc'] = $scope.sortOrder;
+        if(name === currentColumnName && currentDirection === 'asc') {
+          return `Sort ${name} descending`;
+        }
+
+        return `Sort ${name} ascending`;
       };
     }
   };

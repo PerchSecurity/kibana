@@ -1,346 +1,227 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import expect from 'expect.js';
 
 export default function ({ getService, getPageObjects }) {
   const log = getService('log');
   const retry = getService('retry');
-  const screenshots = getService('screenshots');
+  const remote = getService('remote');
   const PageObjects = getPageObjects(['common', 'visualize', 'header', 'settings']);
 
-  describe('visualize app', function describeIndexTests() {
-    before(function () {
-      const fromTime = '2015-09-19 06:31:44.000';
-      const toTime = '2015-09-23 18:31:44.000';
 
-      log.debug('navigateToApp visualize');
-      return PageObjects.common.navigateToUrl('visualize', 'new')
-        .then(function () {
-          log.debug('clickTileMap');
-          return PageObjects.visualize.clickTileMap();
-        })
-        .then(function () {
-          return PageObjects.visualize.clickNewSearch();
-        })
-        .then(function () {
-          log.debug('Set absolute time range from \"' + fromTime + '\" to \"' + toTime + '\"');
-          return PageObjects.header.setAbsoluteRange(fromTime, toTime);
-        })
-        .then(function () {
-          log.debug('select bucket Geo Coordinates');
-          return PageObjects.visualize.clickBucket('Geo Coordinates');
-        })
-        .then(function () {
-          log.debug('Click aggregation Geohash');
-          return PageObjects.visualize.selectAggregation('Geohash');
-        })
-        .then(function () {
-          log.debug('Click field geo.coordinates');
-          return retry.try(function tryingForTime() {
-            return PageObjects.visualize.selectField('geo.coordinates');
-          });
-        })
-        .then(function () {
-          return PageObjects.visualize.clickGo();
-        })
-        .then(function () {
-          return PageObjects.header.waitUntilLoadingHasFinished();
-        });
+  describe('tile map visualize app', function () {
+
+
+    describe('incomplete config', function describeIndexTests() {
+
+
+      before(async function () {
+        remote.setWindowSize(1280, 1000);
+
+        const fromTime = '2015-09-19 06:31:44.000';
+        const toTime = '2015-09-23 18:31:44.000';
+
+        log.debug('navigateToApp visualize');
+        await PageObjects.visualize.navigateToNewVisualization();
+        log.debug('clickTileMap');
+        await PageObjects.visualize.clickTileMap();
+        await PageObjects.visualize.clickNewSearch();
+        log.debug('Set absolute time range from \"' + fromTime + '\" to \"' + toTime + '\"');
+        await PageObjects.header.setAbsoluteRange(fromTime, toTime);
+
+        //do not configure aggs
+      });
+
+
+      it('should be able to zoom in twice', async () => {
+        //should not throw
+        await PageObjects.visualize.clickMapZoomIn();
+        await PageObjects.visualize.clickMapZoomIn();
+      });
+
+
     });
 
 
-    /**
-     * manually compare data due to possible small difference in numbers. This is browser dependent.
-     */
-    function compareTableData(expected, actual) {
 
-      expect(actual.length).to.eql(expected.length);
+    describe('complete config', function describeIndexTests() {
+      before(async function () {
+        remote.setWindowSize(1280, 1000);
 
-      function tokenize(row) {
-        const tokens = row.split(' ');
-        return {
-          geohash: tokens[0],
-          count: tokens[1],
-          lat: Math.floor(parseFloat(tokens[4])),
-          lon: Math.floor(parseFloat(tokens[6]))
-        };
-      }
+        const fromTime = '2015-09-19 06:31:44.000';
+        const toTime = '2015-09-23 18:31:44.000';
 
-      expect(actual.map(tokenize)).to.eql(expected.map(tokenize));
-    }
-
-
-    describe('tile map chart', function indexPatternCreation() {
-
-      it('should show correct tile map data on default zoom level', function () {
-        const expectedTableData = ['9 5,787 { "lat": 37.22448418632405, "lon": -103.01935195013255 }',
-          'd 5,600 { "lat": 37.44271478370398, "lon": -81.72692197253595 }',
-          'c 1,319 { "lat": 47.72720855392425, "lon": -109.84745063951028 }',
-          'b 999 { "lat": 62.04130042948433, "lon": -155.28087269195967 }',
-          'f 187 { "lat": 45.656166475784175, "lon": -82.45831044201545 }',
-          '8 108 { "lat": 18.85260305600241, "lon": -156.5148810390383 }'];
-
-        return PageObjects.visualize.collapseChart()
-          .then(function () {
-            //level 1
-            return PageObjects.visualize.clickMapZoomOut();
-          })
-          .then(function () {
-            //level 0
-            return PageObjects.visualize.clickMapZoomOut();
-          })
-          .then(function () {
-            return PageObjects.settings.setPageSize('All');
-          })
-          .then(function getDataTableData() {
-            return PageObjects.visualize.getDataTableData()
-            .then(function showData(actualTableData) {
-              compareTableData(expectedTableData, actualTableData.trim().split('\n'));
-              return PageObjects.visualize.collapseChart();
-            });
-          });
-
-        it('should not be able to zoom out beyond 0', function () {
-          return PageObjects.visualize.getMapZoomOutEnabled()
-        // we can tell we're at level 1 because zoom out is disabled
-          .then(function () {
-            return retry.try(function tryingForTime() {
-              return PageObjects.visualize.getMapZoomOutEnabled()
-                .then(function (enabled) {
-                  //should be able to zoom more as current config has 0 as min level.
-                  expect(enabled).to.be(false);
-                });
-            });
-          })
-          .then(function takeScreenshot() {
-            log.debug('Take screenshot (success)');
-            screenshots.take('map-at-zoom-0');
-          });
+        log.debug('navigateToApp visualize');
+        await PageObjects.visualize.navigateToNewVisualization();
+        log.debug('clickTileMap');
+        await PageObjects.visualize.clickTileMap();
+        await PageObjects.visualize.clickNewSearch();
+        log.debug('Set absolute time range from \"' + fromTime + '\" to \"' + toTime + '\"');
+        await PageObjects.header.setAbsoluteRange(fromTime, toTime);
+        log.debug('select bucket Geo Coordinates');
+        await PageObjects.visualize.clickBucket('Geo Coordinates');
+        log.debug('Click aggregation Geohash');
+        await PageObjects.visualize.selectAggregation('Geohash');
+        log.debug('Click field geo.coordinates');
+        await retry.try(async function tryingForTime() {
+          await PageObjects.visualize.selectField('geo.coordinates');
         });
-
-        it('Fit data bounds should zoom to level 3', function () {
-          const expectedPrecision2ZoomCircles = [
-          { color: '#750000', radius: 192 },
-          { color: '#750000', radius: 191 },
-          { color: '#750000', radius: 177 },
-          { color: '#a40000', radius: 168 },
-          { color: '#a40000', radius: 167 },
-          { color: '#a40000', radius: 159 },
-          { color: '#a40000', radius: 156 },
-          { color: '#b45100', radius: 136 },
-          { color: '#b67501', radius: 111 },
-          { color: '#b67501', radius: 109 },
-          { color: '#b67501', radius: 108 },
-          { color: '#b67501', radius: 104 },
-          { color: '#b67501', radius: 101 },
-          { color: '#b67501', radius: 101 },
-          { color: '#b99939', radius: 84 },
-          { color: '#b99939', radius: 84 },
-          { color: '#b99939', radius: 74 },
-          { color: '#b99939', radius: 73 },
-          { color: '#b99939', radius: 73 },
-          { color: '#b99939', radius: 66 },
-          { color: '#b99939', radius: 60 },
-          { color: '#b99939', radius: 57 },
-          { color: '#b99939', radius: 57 },
-          { color: '#b99939', radius: 47 },
-          { color: '#b99939', radius: 43 },
-          { color: '#b99939', radius: 43 },
-          { color: '#b99939', radius: 43 },
-          { color: '#b99939', radius: 38 },
-          { color: '#b99939', radius: 36 },
-          { color: '#b99939', radius: 35 },
-          { color: '#b99939', radius: 34 },
-          { color: '#b99939', radius: 34 },
-          { color: '#b99939', radius: 31 },
-          { color: '#b99939', radius: 30 },
-          { color: '#b99939', radius: 28 },
-          { color: '#b99939', radius: 27 },
-          { color: '#b99939', radius: 24 },
-          { color: '#b99939', radius: 22 },
-          { color: '#b99939', radius: 19 },
-          { color: '#b99939', radius: 19 },
-          { color: '#b99939', radius: 15 },
-          { color: '#b99939', radius: 15 },
-          { color: '#b99939', radius: 15 },
-          { color: '#b99939', radius: 12 },
-          { color: '#b99939', radius: 9 },
-          { color: '#b99939', radius: 9 }
-          ];
-
-          return PageObjects.visualize.clickMapFitDataBounds()
-          .then(function () {
-            return PageObjects.visualize.getTileMapData();
-          })
-          .then(function (data) {
-            expect(data).to.eql(expectedPrecision2ZoomCircles);
-          });
-        });
-
-      /*
-       ** NOTE: Since we don't have a reliable way to know the zoom level, we can
-       ** check some data after we save the viz, then zoom in and check that the data
-       ** changed, then open the saved viz and check that it's back to the original data.
-       */
-        it('should save with zoom level and load, take screenshot', function () {
-          const expectedTableData = [ 'dr4 127 { "lat": 40.142432276496855, "lon": -75.17097956302949 }',
-            'dr7 92 { "lat": 41.48015560278588, "lon": -73.90037568609999 }',
-            '9q5 91 { "lat": 34.293431888365156, "lon": -118.57068410102319 }',
-            '9qc 89 { "lat": 38.645468642830515, "lon": -121.59105310990904 }',
-            'drk 87 { "lat": 41.38891646156794, "lon": -72.50977680472464 }',
-            'dps 82 { "lat": 42.79333563657796, "lon": -83.55129436180904 }',
-            'dph 82 { "lat": 40.03466797526926, "lon": -83.6603344113725 }',
-            'dp3 79 { "lat": 41.68207621697006, "lon": -87.98703811709073 }',
-            'dpe 78 { "lat": 42.83740988287788, "lon": -85.13176125187714 }',
-            'dp8 77 { "lat": 43.00976751178697, "lon": -89.27605860007854 }' ];
-          const expectedTableDataZoomed = [ 'dr5r 21 { "lat": 40.73313889359789, "lon": -74.00737997410553 }',
-            'dps8 20 { "lat": 42.25258858362213, "lon": -83.4615091625601 }',
-            '9q5b 19 { "lat": 33.8619567100939, "lon": -118.28354520723224 }',
-            'b6uc 17 { "lat": 60.721656321274004, "lon": -161.86279475141097 }',
-            '9y63 17 { "lat": 35.48034298178904, "lon": -97.90940423550852 }',
-            'c20g 16 { "lat": 45.59211885672994, "lon": -122.47455088770948 }',
-            'dqfz 15 { "lat": 39.24278838559985, "lon": -74.69487586989999 }',
-            'dr8h 14 { "lat": 42.9455179042582, "lon": -78.65373932623437 }',
-            'dp8p 14 { "lat": 43.52336289028504, "lon": -89.84673104515034 }',
-            'dp3k 14 { "lat": 41.569707432229606, "lon": -88.12707824898618 }' ];
-          const vizName1 = 'Visualization TileMap';
-
-          return PageObjects.visualize.clickMapZoomIn()
-          .then(function () {
-            return PageObjects.visualize.clickMapZoomIn();
-          })
-          .then(function () {
-            return PageObjects.visualize.saveVisualization(vizName1);
-          })
-          .then(function (message) {
-            log.debug('Saved viz message = ' + message);
-            expect(message).to.be('Visualization Editor: Saved Visualization \"' + vizName1 + '\"');
-          })
-          .then(function testVisualizeWaitForToastMessageGone() {
-            return PageObjects.visualize.waitForToastMessageGone();
-          })
-          .then(function () {
-            return PageObjects.visualize.collapseChart();
-          })
-          // we're not selecting page size all, so we only have to verify the first page of data
-          .then(function getDataTableData() {
-            log.debug('first get the zoom level 5 page data and verify it');
-            return PageObjects.visualize.getDataTableData();
-          })
-          .then(function showData(data) {
-            compareTableData(expectedTableData, data.trim().split('\n'));
-            return PageObjects.visualize.collapseChart();
-          })
-          .then(function () {
-            // zoom to level 6, and make sure we go back to the saved level 5
-            return PageObjects.visualize.clickMapZoomIn();
-          })
-          .then(function () {
-            return PageObjects.visualize.collapseChart();
-          })
-          .then(function getDataTableData() {
-            log.debug('second get the zoom level 6 page data and verify it');
-            return PageObjects.visualize.getDataTableData();
-          })
-          .then(function showData(data) {
-            compareTableData(expectedTableDataZoomed, data.trim().split('\n'));
-            return PageObjects.visualize.collapseChart();
-          })
-          .then(function () {
-            return PageObjects.visualize.loadSavedVisualization(vizName1);
-          })
-          .then(function waitForVisualization() {
-            return PageObjects.visualize.waitForVisualization();
-          })
-          // sleep a bit before taking the screenshot or it won't show data
-          .then(function sleep() {
-            return PageObjects.common.sleep(4000);
-          })
-          .then(function () {
-            return PageObjects.visualize.collapseChart();
-          })
-          .then(function getDataTableData() {
-            log.debug('third get the zoom level 5 page data and verify it');
-            return PageObjects.visualize.getDataTableData();
-          })
-          .then(function showData(data) {
-            compareTableData(expectedTableData, data.trim().split('\n'));
-            return PageObjects.visualize.collapseChart();
-          })
-          .then(function takeScreenshot() {
-            log.debug('Take screenshot');
-            screenshots.take('Visualize-site-map');
-          });
-        });
-
-        it('should zoom in to level 10', function () {
-        // 6
-          return PageObjects.visualize.clickMapZoomIn()
-          .then(function () {
-            // 7
-            return PageObjects.visualize.clickMapZoomIn();
-          })
-          .then(function () {
-            // 8
-            return PageObjects.visualize.clickMapZoomIn();
-          })
-          .then(function () {
-            // 9
-            return PageObjects.visualize.clickMapZoomIn();
-          })
-          .then(function () {
-            return retry.try(function tryingForTime() {
-              return PageObjects.visualize.getMapZoomInEnabled()
-                .then(function (enabled) {
-                  expect(enabled).to.be(true);
-                });
-            });
-          })
-          .then(function () {
-            return PageObjects.visualize.clickMapZoomIn();
-          })
-          .then(function () {
-            return PageObjects.visualize.getMapZoomInEnabled();
-          })
-          // now we're at level 10 and zoom out should be disabled
-          .then(function (enabled) {
-            expect(enabled).to.be(false);
-          });
-        });
+        await PageObjects.visualize.clickGo();
+        await PageObjects.header.waitUntilLoadingHasFinished();
       });
 
-      it('wms switch should change allow to zoom in further', function () {
+      /**
+       * manually compare data due to possible small difference in numbers. This is browser dependent.
+       */
+      function compareTableData(actual, expected) {
+        log.debug('comparing expected: ', expected);
+        log.debug('with actual: ', actual);
 
-        return PageObjects.visualize.collapseChart()
-          .then(function () {
-            return PageObjects.visualize.clickOptions();
-          })
-          .then(function () {
-            return PageObjects.visualize.selectWMS();
-          })
-          .then(function () {
-            return PageObjects.visualize.clickGo();
-          })
-          .then(function () {
-            return PageObjects.header.waitUntilLoadingHasFinished();
-          })
-          .then(function () {
-            return PageObjects.common.sleep(2000);
-          })
-          .then(function () {
-            return PageObjects.visualize.getMapZoomInEnabled();
-          })
-          .then(function (enabled) {//should be able to zoom in again
-            expect(enabled).to.be(true);
-          })
-          .then(function () {
-            return PageObjects.visualize.clickMapZoomIn();
-          })
-          .then(function () {
-            return PageObjects.visualize.getMapZoomInEnabled();
-          })
-          .then(function (enabled) {//should be able to zoom in again
-            expect(enabled).to.be(true);
-          });
+        const roundedValues = actual.map(row => {
+          // Parse last element in each row as JSON and floor the lat/long value
+          const coords = JSON.parse(row[row.length - 1]);
+          row[row.length - 1] = {
+            lat: Math.floor(parseFloat(coords.lat)),
+            lon: Math.floor(parseFloat(coords.lon)),
+          };
+          return row;
+        });
 
+        expect(roundedValues).to.eql(expected);
+      }
+
+      describe('tile map chart', function indexPatternCreation() {
+        it('should have inspector enabled', async function () {
+          const spyToggleExists = await PageObjects.visualize.isInspectorButtonEnabled();
+          expect(spyToggleExists).to.be(true);
+        });
+
+        it('should show correct tile map data on default zoom level', async function () {
+          const expectedTableData = [
+            ['-', '9', '5,787', { 'lat': 37, 'lon': -104 } ],
+            ['-', 'd', '5,600', { 'lat': 37, 'lon': -82 } ],
+            ['-', 'c', '1,319', { 'lat': 47, 'lon': -110 } ],
+            ['-', 'b', '999', { 'lat': 62, 'lon': -156 } ],
+            ['-', 'f', '187', { 'lat': 45, 'lon': -83 } ],
+            ['-', '8', '108', { 'lat': 18, 'lon': -157 } ]
+          ];
+          //level 1
+          await PageObjects.visualize.clickMapZoomOut();
+          //level 0
+          await PageObjects.visualize.clickMapZoomOut();
+
+          await PageObjects.visualize.openInspector();
+          await PageObjects.visualize.setInspectorTablePageSize(50);
+          const actualTableData = await PageObjects.visualize.getInspectorTableData();
+          await PageObjects.visualize.closeInspector();
+          compareTableData(actualTableData, expectedTableData);
+        });
+
+        it('should not be able to zoom out beyond 0', async function () {
+          await PageObjects.visualize.zoomAllTheWayOut();
+          const enabled = await PageObjects.visualize.getMapZoomOutEnabled();
+          expect(enabled).to.be(false);
+        });
+
+        // See https://github.com/elastic/kibana/issues/13137 if this test starts failing intermittently
+        it('Fit data bounds should zoom to level 3', async function () {
+          const expectedPrecision2DataTable = [
+            ['-', 'dn', '1,429', { 'lat': 36, 'lon': -85 }],
+            ['-', 'dp', '1,418', { 'lat': 41, 'lon': -85 }],
+            ['-', '9y', '1,215', { 'lat': 36, 'lon': -96 }],
+            ['-', '9z', '1,099', { 'lat': 42, 'lon': -96 }],
+            ['-', 'dr', '1,076', { 'lat': 42, 'lon': -74 }],
+            ['-', 'dj', '982', { 'lat': 31, 'lon': -85 }],
+            ['-', '9v', '938', { 'lat': 31, 'lon': -96 }],
+            ['-', '9q', '722', { 'lat': 36, 'lon': -120 }],
+            ['-', '9w', '475', { 'lat': 36, 'lon': -107 }],
+            ['-', 'cb', '457', { 'lat': 46, 'lon': -96 }],
+            [ '-', 'c2', '453', { lat: 47, lon: -120 } ],
+            [ '-', '9x', '420', { lat: 41, lon: -107 } ],
+            [ '-', 'dq', '399', { lat: 37, lon: -78 } ],
+            [ '-', '9r', '396', { lat: 41, lon: -120 } ],
+            [ '-', '9t', '274', { lat: 32, lon: -107 } ],
+            [ '-', 'c8', '271', { lat: 47, lon: -107 } ],
+            [ '-', 'dh', '214', { lat: 26, lon: -82 } ],
+            [ '-', 'b6', '207', { lat: 60, lon: -162 } ],
+            [ '-', 'bd', '206', { lat: 59, lon: -153 } ],
+            [ '-', 'b7', '167', { lat: 64, lon: -163 } ],
+          ];
+
+          await PageObjects.visualize.clickMapFitDataBounds();
+          await PageObjects.visualize.openInspector();
+          const data = await PageObjects.visualize.getInspectorTableData();
+          await PageObjects.visualize.closeInspector();
+          compareTableData(data, expectedPrecision2DataTable);
+        });
+
+        it('Newly saved visualization retains map bounds', async () => {
+          const vizName1 = 'Visualization TileMap';
+
+          await PageObjects.visualize.clickMapZoomIn();
+          await PageObjects.visualize.clickMapZoomIn();
+
+          const mapBounds = await PageObjects.visualize.getMapBounds();
+          await PageObjects.visualize.closeInspector();
+
+          await PageObjects.visualize.saveVisualizationExpectSuccess(vizName1);
+
+          const afterSaveMapBounds = await PageObjects.visualize.getMapBounds();
+
+          await PageObjects.visualize.closeInspector();
+          // For some reason the values are slightly different, so we can't check that they are equal. But we did
+          // have a bug where after the save, there were _no_ map bounds. So this checks for the later case, but
+          // until we figure out how to make sure the map center is always the exact same, we can't comparison check.
+          expect(mapBounds).to.not.be(undefined);
+          expect(afterSaveMapBounds).to.not.be(undefined);
+        });
+
+      });
+
+      describe('Only request data around extent of map option', async () => {
+
+        it('when checked adds filters to aggregation', async () => {
+          const vizName1 = 'Visualization TileMap';
+          await PageObjects.visualize.loadSavedVisualization(vizName1);
+          await PageObjects.visualize.openInspector();
+          const tableHeaders = await PageObjects.visualize.getInspectorTableHeaders();
+          await PageObjects.visualize.closeInspector();
+          expect(tableHeaders).to.eql(['filter', 'geohash_grid', 'Count', 'Geo Centroid']);
+        });
+
+        it('when not checked does not add filters to aggregation', async () => {
+          await PageObjects.visualize.toggleOpenEditor(2);
+          await PageObjects.visualize.toggleIsFilteredByCollarCheckbox();
+          await PageObjects.visualize.clickGo();
+          await PageObjects.header.waitUntilLoadingHasFinished();
+          await PageObjects.visualize.openInspector();
+          const tableHeaders = await PageObjects.visualize.getInspectorTableHeaders();
+          await PageObjects.visualize.closeInspector();
+          expect(tableHeaders).to.eql(['geohash_grid', 'Count', 'Geo Centroid']);
+        });
+
+        after(async () => {
+          await PageObjects.visualize.toggleIsFilteredByCollarCheckbox();
+          await PageObjects.visualize.clickGo();
+          await PageObjects.header.waitUntilLoadingHasFinished();
+        });
       });
     });
   });

@@ -1,12 +1,37 @@
-import React, { Component, PropTypes } from 'react';
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import PropTypes from 'prop-types';
+import React, { Component } from 'react';
 import _ from 'lodash';
-import collectionActions from './lib/collection_actions';
+import * as collectionActions from './lib/collection_actions';
 import AddDeleteButtons from './add_delete_buttons';
 import ColorPicker from './color_picker';
 import FieldSelect from './aggs/field_select';
 import uuid from 'uuid';
 import IconSelect from './icon_select';
 import YesNo from './yes_no';
+
+import {
+  htmlIdGenerator,
+  EuiText,
+} from '@elastic/eui';
 
 function newAnnotation() {
   return {
@@ -31,7 +56,7 @@ class AnnotationsEditor extends Component {
     return (e) => {
       const handleChange = collectionActions.handleChange.bind(null, this.props);
       const part = {};
-      part[name] = _.get(e, 'value', _.get(e, 'target.value'));
+      part[name] = _.get(e, '[0].value', _.get(e, 'target.value'));
       handleChange(_.assign({}, item, part));
     };
   }
@@ -43,6 +68,7 @@ class AnnotationsEditor extends Component {
       const fn = collectionActions.handleChange.bind(null, this.props);
       fn(_.assign({}, model, part));
     };
+    const htmlId = htmlIdGenerator(model.id);
     const handleAdd = collectionActions.handleAdd
       .bind(null, this.props, newAnnotation);
     const handleDelete = collectionActions.handleDelete
@@ -54,85 +80,111 @@ class AnnotationsEditor extends Component {
             disableTrash={true}
             onChange={handleChange}
             name="color"
-            value={model.color}/>
+            value={model.color}
+          />
         </div>
         <div className="vis_editor__annotations-content">
           <div className="vis_editor__row">
             <div className="vis_editor__row-item">
-              <div className="vis_editor__label">Index Pattern (required)</div>
+              <label className="vis_editor__label" htmlFor={htmlId('indexPattern')}>
+                Index Pattern (required)
+              </label>
               <input
+                id={htmlId('indexPattern')}
                 className="vis_editor__input-grows-100"
                 type="text"
                 onChange={this.handleChange(model, 'index_pattern')}
-                value={model.index_pattern} />
+                value={model.index_pattern}
+              />
             </div>
             <div className="vis_editor__row-item">
-              <div className="vis_editor__label">Time Field (required)</div>
+              <label className="vis_editor__label" htmlFor={htmlId('timeField')}>
+                Time Field (required)
+              </label>
               <FieldSelect
+                id={htmlId('timeField')}
                 restrict="date"
                 value={model.time_field}
                 onChange={this.handleChange(model, 'time_field')}
                 indexPattern={model.index_pattern}
-                fields={this.props.fields}/>
+                fields={this.props.fields}
+              />
             </div>
           </div>
           <div className="vis_editor__row">
             <div className="vis_editor__row-item">
-              <div className="vis_editor__label">Query String</div>
+              <label className="vis_editor__label" htmlFor={htmlId('queryString')}>
+                Query String
+              </label>
               <input
+                id={htmlId('queryString')}
                 className="vis_editor__input-grows-100"
                 type="text"
                 onChange={this.handleChange(model, 'query_string')}
-                value={model.query_string} />
+                value={model.query_string}
+              />
             </div>
-            <div className="vis_editor__row-item-small">
-              <div className="vis_editor__label">Ignore Global Filters</div>
+            <fieldset className="vis_editor__row-item-small">
+              <legend className="vis_editor__label">Ignore Global Filters</legend>
               <YesNo
                 value={model.ignore_global_filters}
                 name="ignore_global_filters"
-                onChange={handleChange}/>
+                onChange={handleChange}
+              />
 
-            </div>
-            <div className="vis_editor__row-item-small">
-              <div className="vis_editor__label">Ignore Panel Filters</div>
+            </fieldset>
+            <fieldset className="vis_editor__row-item-small">
+              <legend className="vis_editor__label">Ignore Panel Filters</legend>
               <YesNo
                 value={model.ignore_panel_filters}
                 name="ignore_panel_filters"
-                onChange={handleChange}/>
+                onChange={handleChange}
+              />
 
-            </div>
+            </fieldset>
           </div>
           <div className="vis_editor__row">
             <div className="vis_editor__row-item">
-              <div className="vis_editor__label">Icon (required)</div>
+              <label className="vis_editor__label" htmlFor={htmlId('icon')}>Icon (required)</label>
               <div className="vis_editor__item">
                 <IconSelect
+                  id={htmlId('icon')}
                   value={model.icon}
-                  onChange={this.handleChange(model, 'icon')} />
+                  onChange={this.handleChange(model, 'icon')}
+                />
               </div>
             </div>
             <div className="vis_editor__row-item">
-              <div className="vis_editor__label">Fields (required - comma separated paths)</div>
+              <label className="vis_editor__label" htmlFor={htmlId('fields')}>
+                Fields (required - comma separated paths)
+              </label>
               <input
+                id={htmlId('fields')}
                 className="vis_editor__input-grows-100"
                 type="text"
                 onChange={this.handleChange(model, 'fields')}
-                value={model.fields} />
+                value={model.fields}
+              />
             </div>
             <div className="vis_editor__row-item">
-              <div className="vis_editor__label">Row Template (required - eg.<code>{'{{field}}'}</code>)</div>
+              <label className="vis_editor__label" htmlFor={htmlId('rowTemplate')}>
+                Row Template (required - eg.<code>{'{{field}}'}</code>)
+              </label>
               <input
+                id={htmlId('rowTemplate')}
                 className="vis_editor__input-grows-100"
                 type="text"
                 onChange={this.handleChange(model, 'template')}
-                value={model.template} />
+                value={model.template}
+              />
             </div>
           </div>
         </div>
         <div className="vis_editor__annotations-controls">
           <AddDeleteButtons
             onAdd={handleAdd}
-            onDelete={handleDelete} />
+            onDelete={handleDelete}
+          />
         </div>
       </div>
     );
@@ -146,17 +198,28 @@ class AnnotationsEditor extends Component {
         .bind(null, this.props, newAnnotation);
       content = (
         <div className="vis_editor__annotations-missing">
-          <p>Click the button below to create an annotation data source.</p>
-          <a className="thor__button-outlined-default large"
-        onClick={handleAdd}>Add Data Source</a>
+          <EuiText>
+            <p>Click the button below to create an annotation data source.</p>
+            <button
+              className="thor__button-outlined-default large"
+              onClick={handleAdd}
+            >Add Data Source
+            </button>
+          </EuiText>
         </div>
       );
     } else {
       const annotations = model.annotations.map(this.renderRow);
       content = (
         <div className="vis_editor__annotations">
-          <div className="kbnTabs sm">
-            <div className="kbnTabs__tab-active">Data Sources</div>
+          <div className="kbnTabs sm" role="tablist">
+            <button
+              role="tab"
+              aria-selected={true}
+              className="kbnTabs__tab-active"
+            >
+              Data Sources
+            </button>
           </div>
           { annotations }
         </div>

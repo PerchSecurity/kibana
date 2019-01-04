@@ -1,6 +1,26 @@
-import React, { Component, PropTypes } from 'react';
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import PropTypes from 'prop-types';
+import React, { Component } from 'react';
 import _ from 'lodash';
-import getLastValue from '../lib/get_last_value';
+import getLastValue from '../../../common/get_last_value';
 import TimeseriesChart from './timeseries_chart';
 import Legend from './legend';
 import eventBus from '../lib/events';
@@ -16,7 +36,7 @@ class Timeseries extends Component {
       values: values || {},
       show: _.keys(values) || [],
       ignoreLegendUpdates: false,
-      ignoreVisabilityUpdates: false
+      ignoreVisibilityUpdates: false
     };
     this.toggleFilter = this.toggleFilter.bind(this);
     this.handleHideClick = this.handleHideClick.bind(this);
@@ -29,10 +49,10 @@ class Timeseries extends Component {
     const isCurrentlyShown = _.includes(this.state.show, id);
     const show = [];
     if (notAllShown && isCurrentlyShown) {
-      this.setState({ ignoreVisabilityUpdates: false, show: Object.keys(this.state.values) });
+      this.setState({ ignoreVisibilityUpdates: false, show: Object.keys(this.state.values) });
     } else {
       show.push(id);
-      this.setState({ ignoreVisabilityUpdates: true, show: [id] });
+      this.setState({ ignoreVisibilityUpdates: true, show: [id] });
     }
     return show;
   }
@@ -59,7 +79,7 @@ class Timeseries extends Component {
     const values = {};
     if (pos) {
       this.props.series.forEach((row) => {
-        if (row.data && _.isArray(row.data)) {
+        if (row.data && Array.isArray(row.data)) {
           if (item && row.data[item.dataIndex] && row.data[item.dataIndex][0] === item.datapoint[0]) {
             values[row.id] = row.data[item.dataIndex][1];
           } else {
@@ -89,7 +109,7 @@ class Timeseries extends Component {
       const keys = _.keys(values);
       const diff = _.difference(keys, currentKeys);
       const nextState = { values: values };
-      if (diff.length && !this.state.ignoreVisabilityUpdates) {
+      if (diff.length && !this.state.ignoreVisibilityUpdates) {
         nextState.show = keys;
       }
       this.setState(nextState);
@@ -117,22 +137,25 @@ class Timeseries extends Component {
       }
     }, { bottomLegend: this.props.legendPosition === 'bottom' });
     return (
-      <div className={className}>
+      <div className={className} data-test-subj="timeseriesChart">
         <div style={styles.content} className="rhythm_chart__content">
           <div className="rhythm_chart__visualization">
             <TimeseriesChart
+              dateFormat={this.props.dateFormat}
               crosshair={this.props.crosshair}
               onBrush={this.props.onBrush}
-              plothover={ this.plothover}
+              plothover={this.plothover}
               reversed={this.props.reversed}
               series={this.props.series}
               annotations={this.props.annotations}
-              show={ this.state.show }
-              showGrid={ this.props.showGrid }
+              show={this.state.show}
+              showGrid={this.props.showGrid}
               tickFormatter={this.props.tickFormatter}
               options={this.props.options}
               xaxisLabel={this.props.xaxisLabel}
-              yaxes={this.props.yaxes} />
+              yaxes={this.props.yaxes}
+              xAxisFormatter={this.props.xAxisFormatter}
+            />
           </div>
           <Legend
             legendPosition={this.props.legendPosition}
@@ -142,7 +165,8 @@ class Timeseries extends Component {
             showLegend={this.state.showLegend}
             seriesValues={this.state.values}
             seriesFilter={this.state.show}
-            tickFormatter={this.props.tickFormatter} />
+            tickFormatter={this.props.tickFormatter}
+          />
         </div>
       </div>
     );
@@ -153,7 +177,7 @@ class Timeseries extends Component {
 }
 
 Timeseries.defaultProps = {
-  legned: true,
+  legend: true,
   showGrid: true
 };
 
@@ -167,7 +191,8 @@ Timeseries.propTypes = {
   options: PropTypes.object,
   tickFormatter: PropTypes.func,
   showGrid: PropTypes.bool,
-  xaxisLabel: PropTypes.string
+  xaxisLabel: PropTypes.string,
+  dateFormat: PropTypes.string
 };
 
 export default Timeseries;

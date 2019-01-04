@@ -1,9 +1,31 @@
-export function DocTableProvider({ getService }) {
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+export function DocTableProvider({ getService, getPageObjects }) {
   const testSubjects = getService('testSubjects');
+  const retry = getService('retry');
+  const PageObjects = getPageObjects(['common', 'header']);
+
 
   class DocTable {
-    getTable() {
-      return testSubjects.find('docTable');
+    async getTable() {
+      return await testSubjects.find('docTable');
     }
 
     async getBodyRows(table) {
@@ -15,7 +37,7 @@ export function DocTableProvider({ getService }) {
     }
 
     async getAnchorDetailsRow(table) {
-      return await table.findByCssSelector('[data-test-subj~="docTableAnchorRow"] + tr');
+      return await table.findByCssSelector('[data-test-subj~="docTableAnchorRow"] + [data-test-subj~="docTableDetailsRow"]');
     }
 
     async getRowExpandToggle(row) {
@@ -23,7 +45,7 @@ export function DocTableProvider({ getService }) {
     }
 
     async getDetailsRows(table) {
-      return await table.findAllByCssSelector('[data-test-subj~="docTableRow"] + tr');
+      return await table.findAllByCssSelector('[data-test-subj~="docTableRow"] + [data-test-subj~="docTableDetailsRow"]');
     }
 
     async getRowActions(row) {
@@ -50,11 +72,18 @@ export function DocTableProvider({ getService }) {
       const tableDocViewRow = await this.getTableDocViewRow(detailsRow, fieldName);
       const addInclusiveFilterButton = await this.getAddInclusiveFilterButton(tableDocViewRow);
       await addInclusiveFilterButton.click();
+      await PageObjects.header.awaitGlobalLoadingIndicatorHidden();
     }
 
     async toggleRowExpanded(row) {
       const rowExpandToggle = await this.getRowExpandToggle(row);
-      return await rowExpandToggle.click();
+      await rowExpandToggle.click();
+      await PageObjects.header.awaitGlobalLoadingIndicatorHidden();
+
+      const detailsRow = await row.findByXpath('./following-sibling::*[@data-test-subj="docTableDetailsRow"]');
+      return await retry.try(async () => {
+        return detailsRow.findByCssSelector('[data-test-subj~="docViewer"]');
+      });
     }
   }
 

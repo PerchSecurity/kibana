@@ -1,10 +1,39 @@
-import { times } from 'lodash';
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import { resolve, dirname } from 'path';
+import { times } from 'lodash';
 
 const TOTAL_CI_SHARDS = 4;
 const ROOT = dirname(require.resolve('../../package.json'));
 
 module.exports = function (grunt) {
+  function pickBrowser() {
+    if (grunt.option('browser')) {
+      return grunt.option('browser');
+    }
+    if (process.env.TEST_BROWSER_HEADLESS) {
+      return 'Chrome_Headless';
+    }
+    return 'Chrome';
+  }
+
   const config = {
     options: {
       // base path that will be used to resolve all patterns (eg. files, exclude)
@@ -17,7 +46,17 @@ module.exports = function (grunt) {
       colors: true,
       logLevel: grunt.option('debug') || grunt.option('verbose') ? 'DEBUG' : 'INFO',
       autoWatch: false,
-      browsers: ['<%= karmaBrowser %>'],
+      browsers: [pickBrowser()],
+      customLaunchers: {
+        Chrome_Headless: {
+          base: 'Chrome',
+          flags: [
+            '--headless',
+            '--disable-gpu',
+            '--remote-debugging-port=9222',
+          ],
+        },
+      },
 
       // available reporters: https://npmjs.org/browse/keyword/karma-reporter
       reporters: process.env.CI ? ['dots', 'junit'] : ['progress'],
@@ -37,9 +76,10 @@ module.exports = function (grunt) {
 
       // list of files / patterns to load in the browser
       files: [
-        'http://localhost:5610/bundles/commons.bundle.js',
+        'http://localhost:5610/bundles/vendors.bundle.js',
         'http://localhost:5610/bundles/tests.bundle.js',
-        'http://localhost:5610/bundles/commons.style.css',
+
+        'http://localhost:5610/bundles/vendors.style.css',
         'http://localhost:5610/bundles/tests.style.css'
       ],
 
@@ -102,11 +142,11 @@ module.exports = function (grunt) {
    *  (&shard_num=Y), are added to the testing bundle url and read by the
    *  test_harness/setup_test_sharding[1] module. This allows us to use a
    *  different number of shards in different scenarios (ie. running
-   *  `npm run test:browser` runs the tests in a single shard, effectively
+   *  `yarn test:browser` runs the tests in a single shard, effectively
    *  disabling sharding)
    *
    *  These same parameters can also be defined in the URL/query string of the
-   *  karma debug page (started when you run `npm run test:dev`).
+   *  karma debug page (started when you run `yarn test:dev`).
    *
    *  ## debugging
    *
@@ -126,8 +166,11 @@ module.exports = function (grunt) {
       singleRun: true,
       options: {
         files: [
+          'http://localhost:5610/bundles/vendors.bundle.js',
           'http://localhost:5610/bundles/commons.bundle.js',
           `http://localhost:5610/bundles/tests.bundle.js?shards=${TOTAL_CI_SHARDS}&shard_num=${n}`,
+
+          'http://localhost:5610/bundles/vendors.style.css',
           'http://localhost:5610/bundles/commons.style.css',
           'http://localhost:5610/bundles/tests.style.css'
         ]

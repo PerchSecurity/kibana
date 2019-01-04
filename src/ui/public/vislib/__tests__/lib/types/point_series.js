@@ -1,7 +1,26 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import ngMock from 'ng_mock';
 import expect from 'expect.js';
 import stackedSeries from 'fixtures/vislib/mock_data/date_histogram/_stacked_series';
-import { VislibTypesPointSeries } from 'ui/vislib/lib/types/point_series';
+import { VislibTypesPointSeries } from '../../../lib/types/point_series';
 
 describe('Point Series Config Type Class Test Suite', function () {
   let pointSeriesConfig;
@@ -9,7 +28,22 @@ describe('Point Series Config Type Class Test Suite', function () {
   const histogramConfig = {
     type: 'histogram',
     addLegend: true,
-    addTooltip: true,
+    tooltip: {
+      show: true
+    },
+    categoryAxes: [
+      {
+        id: 'CategoryAxis-1',
+        type: 'category',
+        title: {}
+      }
+    ],
+    valueAxes: [{
+      id: 'ValueAxis-1',
+      type: 'value',
+      labels: {},
+      title: {}
+    }]
   };
 
   const heatmapConfig = {
@@ -25,7 +59,7 @@ describe('Point Series Config Type Class Test Suite', function () {
   };
 
   const data = {
-    get: (prop) => { return data[prop] || null; },
+    get: (prop) => { return data[prop] || data.data[prop] ||  null; },
     getLabels: () => [],
     data: {
       hits: 621,
@@ -64,7 +98,8 @@ describe('Point Series Config Type Class Test Suite', function () {
         { label: 's26', values: [{ x: 1408734060000, y: 8 }] }
       ],
       xAxisLabel: 'Date Histogram',
-      yAxisLabel: 'series'
+      yAxisLabel: 'series',
+      yAxisFormatter: () => 'test'
     }
 
   };
@@ -76,10 +111,15 @@ describe('Point Series Config Type Class Test Suite', function () {
 
   describe('histogram chart', function () {
     beforeEach(function () {
-      parsedConfig = pointSeriesConfig.heatmap(histogramConfig, data);
+      parsedConfig = pointSeriesConfig.column(histogramConfig, data);
     });
     it('should not throw an error when more than 25 series are provided', function () {
       expect(parsedConfig.error).to.be.undefined;
+    });
+
+    it('should set axis title and formatter from data', () => {
+      expect(parsedConfig.categoryAxes[0].title.text).to.equal(data.data.xAxisLabel);
+      expect(parsedConfig.valueAxes[0].labels.axisFormatter).to.not.be.undefined;
     });
   });
 

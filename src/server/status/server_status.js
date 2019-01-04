@@ -1,10 +1,29 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import _ from 'lodash';
 
-import states from './states';
+import * as states from './states';
 import Status from './status';
 import { version } from '../../../package.json';
 
-module.exports = class ServerStatus {
+export default class ServerStatus {
   constructor(server) {
     this.server = server;
     this._created = {};
@@ -55,12 +74,13 @@ module.exports = class ServerStatus {
   }
 
   overall() {
-    const state = _(this._created)
-    .map(function (status) {
-      return states.get(status.state);
-    })
-    .sortBy('severity')
-    .pop();
+    const state = Object
+      // take all created status objects
+      .values(this._created)
+      // get the state descriptor for each status
+      .map(status => states.get(status.state))
+      // reduce to the state with the highest severity, defaulting to green
+      .reduce((a, b) => a.severity > b.severity ? a : b, states.get('green'));
 
     const statuses = _.where(this._created, { state: state.id });
     const since = _.get(_.sortBy(statuses, 'since'), [0, 'since']);
@@ -70,6 +90,7 @@ module.exports = class ServerStatus {
       title: state.title,
       nickname: _.sample(state.nicknames),
       icon: state.icon,
+      uiColor: states.get(state.id).uiColor,
       since: since,
     };
   }
@@ -93,4 +114,4 @@ module.exports = class ServerStatus {
       statuses: _.values(this._created)
     };
   }
-};
+}

@@ -2,6 +2,8 @@
   ng-if="filterParamsPhraseEditor.shouldSuggestValues && field.aggregatable && field.type === 'string'"
   ng-model="params.phrase"
   ui-select-focus-on="focus-params"
+  spinner-enabled="true"
+  spinner-class="kuiIcon kuiIcon--basic fa-spinner fa-spin"
 >
   <ui-select-match placeholder="Values...">
     <span
@@ -34,8 +36,9 @@
   <a
     ng-if="field.type === 'date'"
     class="kuiLink"
-    ng-href="{{dateDocLinks.dateMath}}"
+    documentation-href="date.dateMath"
     target="_blank"
+    rel="noopener noreferrer"
   >
     Accepted date formats
   </a>

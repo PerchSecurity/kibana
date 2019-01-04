@@ -1,3 +1,22 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import d3 from 'd3';
 import d3TagCloud from 'd3-cloud';
 import { seedColors } from 'ui/vis/components/color/seed_colors';
@@ -6,11 +25,10 @@ import { EventEmitter } from 'events';
 const ORIENTATIONS = {
   'single': () => 0,
   'right angled': (tag) => {
-    return hashCode(tag.text) % 2 * 90;
+    return hashWithinRange(tag.text, 2) * 90;
   },
   'multiple': (tag) => {
-    const hashcode = Math.abs(hashCode(tag.text));
-    return ((hashcode % 12) * 15) - 90;//fan out 12 * 15 degrees over top-right and bottom-right quadrant (=-90 deg offset)
+    return ((hashWithinRange(tag.text, 12)) * 15) - 90;//fan out 12 * 15 degrees over top-right and bottom-right quadrant (=-90 deg offset)
   }
 };
 const D3_SCALING_FUNCTIONS = {
@@ -33,7 +51,7 @@ class TagCloud extends EventEmitter {
     this.resize();
 
     //SETTING (non-configurable)
-    this._fontFamily = 'Impact';
+    this._fontFamily = 'Open Sans, sans-serif';
     this._fontStyle = 'normal';
     this._fontWeight = 'normal';
     this._spiral = 'archimedean';//layout shape
@@ -94,7 +112,7 @@ class TagCloud extends EventEmitter {
   }
 
   setData(data) {
-    this._words = data.map(toWordTag);
+    this._words = data;
     this._invalidate(false);
   }
 
@@ -158,7 +176,7 @@ class TagCloud extends EventEmitter {
 
   async _pickPendingJob() {
     return await new Promise((resolve) => {
-      this._setTimeoutId = setTimeout(async() => {
+      this._setTimeoutId = setTimeout(async () => {
         const job = this._pendingJob;
         this._pendingJob = null;
         this._setTimeoutId = null;
@@ -200,12 +218,13 @@ class TagCloud extends EventEmitter {
       enteringTags.style('fill', getFill);
       enteringTags.attr('text-anchor', () => 'middle');
       enteringTags.attr('transform', affineTransform);
-      enteringTags.text(getText);
+      enteringTags.attr('data-test-subj', getDisplayText);
+      enteringTags.text(getDisplayText);
 
       const self = this;
       enteringTags.on({
         click: function (event) {
-          self.emit('select', event.text);
+          self.emit('select', event);
         },
         mouseover: function () {
           d3.select(this).style('cursor', 'pointer');
@@ -266,7 +285,7 @@ class TagCloud extends EventEmitter {
     return {
       refreshLayout: true,
       size: this._size.slice(),
-      words: this._words.map(toWordTag)
+      words: this._words
     };
   }
 
@@ -280,7 +299,9 @@ class TagCloud extends EventEmitter {
           y: tag.y,
           rotate: tag.rotate,
           size: tag.size,
-          text: tag.text
+          rawText: tag.rawText || tag.text,
+          displayText: tag.displayText,
+          meta: tag.meta,
         };
       })
     };
@@ -302,6 +323,12 @@ class TagCloud extends EventEmitter {
 
   async _updateLayout(job) {
 
+    if (job.size[0] <= 0 || job.size[1] <= 0) {
+      // If either width or height isn't above 0 we don't relayout anything,
+      // since the d3-cloud will be stuck in an infinite loop otherwise.
+      return;
+    }
+
     const mapSizeToFontSize = this._makeTextSizeMapper();
     const tagCloudLayoutGenerator = d3TagCloud();
     tagCloudLayoutGenerator.size(job.size);
@@ -314,7 +341,7 @@ class TagCloud extends EventEmitter {
     tagCloudLayoutGenerator.random(seed);
     tagCloudLayoutGenerator.spiral(this._spiral);
     tagCloudLayoutGenerator.words(job.words);
-    tagCloudLayoutGenerator.text(getText);
+    tagCloudLayoutGenerator.text(getDisplayText);
     tagCloudLayoutGenerator.timeInterval(this._timeInterval);
 
     this._layoutIsUpdating = true;
@@ -336,7 +363,8 @@ class TagCloud extends EventEmitter {
     const debug = {};
     debug.positions = this._completedJob ? this._completedJob.words.map(tag => {
       return {
-        text: tag.text,
+        displayText: tag.displayText,
+        rawText: tag.rawText || tag.text,
         x: tag.x,
         y: tag.y,
         rotate: tag.rotate
@@ -357,13 +385,12 @@ function seed() {
   return 0.5;//constant seed (not random) to ensure constant layouts for identical data
 }
 
-function toWordTag(word) {
-  return { value: word.value, text: word.text };
+function getText(word) {
+  return word.rawText;
 }
 
-
-function getText(word) {
-  return word.text;
+function getDisplayText(word) {
+  return word.displayText;
 }
 
 function positionWord(xTranslate, yTranslate, word) {
@@ -389,23 +416,13 @@ function getFill(tag) {
   return colorScale(tag.text);
 }
 
-/**
- * Hash a string to a number. Ensures there is no random element in positioning strings
- * Retrieved from http://stackoverflow.com/questions/26057572/string-to-unique-hash-in-javascript-jquery
- * @param string
- */
-function hashCode(string) {
-  string = JSON.stringify(string);
+function hashWithinRange(str, max) {
+  str = JSON.stringify(str);
   let hash = 0;
-  if (string.length === 0) {
-    return hash;
+  for (const ch of str) {
+    hash = ((hash * 31) + ch.charCodeAt(0)) % max;
   }
-  for (let i = 0; i < string.length; i++) {
-    const char = string.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
-  }
-  return hash;
+  return Math.abs(hash) % max;
 }
 
 export default TagCloud;

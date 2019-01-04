@@ -1,7 +1,25 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import expect from 'expect.js';
 
 import setup from '../apps';
-import StubBrowserStorage from 'test_utils/stub_browser_storage';
 
 describe('Chrome API :: apps', function () {
   describe('#get/setShowAppsLink()', function () {
@@ -100,64 +118,4 @@ describe('Chrome API :: apps', function () {
       expect(chrome.getAppUrl()).to.equal(undefined);
     });
   });
-
-  describe('#getInjected()', function () {
-    describe('called without args', function () {
-      it('returns a clone of all injectedVars', function () {
-        const chrome = {};
-        const vars = { name: 'foo' };
-        setup(chrome, { vars });
-        expect(chrome.getInjected()).to.eql(vars);
-        expect(chrome.getInjected()).to.not.equal(vars);
-      });
-    });
-
-    describe('called with a var name', function () {
-      it('returns the var at that name', function () {
-        const chrome = {};
-        const vars = { name: 'foo' };
-        setup(chrome, { vars });
-        expect(chrome.getInjected('name')).to.equal('foo');
-      });
-    });
-
-    describe('called with a var name and default', function () {
-      it('returns the default when the var is undefined', function () {
-        const chrome = {};
-        const vars = { name: undefined };
-        setup(chrome, { vars });
-        expect(chrome.getInjected('name', 'bar')).to.equal('bar');
-      });
-
-      it('returns null when the var is null', function () {
-        const chrome = {};
-        const vars = { name: null };
-        setup(chrome, { vars });
-        expect(chrome.getInjected('name', 'bar')).to.equal(null);
-      });
-
-      it('returns var if not undefined', function () {
-        const chrome = {};
-        const vars = { name: 'kim' };
-        setup(chrome, { vars });
-        expect(chrome.getInjected('name', 'bar')).to.equal('kim');
-      });
-    });
-
-    describe('#get/setLastUrlFor()', function () {
-      it('reads/writes last url from storage', function () {
-        const chrome = {};
-        const store = new StubBrowserStorage();
-        setup(chrome, { appUrlStore: store });
-        expect(chrome.getLastUrlFor('app')).to.equal(null);
-        chrome.setLastUrlFor('app', 'url');
-        expect(chrome.getLastUrlFor('app')).to.equal('url');
-        expect(store.getStubbedKeys().length).to.equal(1);
-        expect(store.getStubbedValues().shift()).to.equal('url');
-      });
-    });
-  });
-
-
-
 });

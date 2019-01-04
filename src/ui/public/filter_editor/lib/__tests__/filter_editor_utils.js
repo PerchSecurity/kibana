@@ -1,3 +1,22 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import expect from 'expect.js';
 import ngMock from 'ng_mock';
 import sinon from 'sinon';
@@ -17,10 +36,12 @@ import {
   getFieldFromFilter,
   getOperatorFromFilter,
   getParamsFromFilter,
-  getFieldOptions,
+  getFilterableFields,
   getOperatorOptions,
   isFilterValid,
-  buildFilter
+  buildFilter,
+  areIndexPatternsProvided,
+  isFilterPinned
 } from '../filter_editor_utils';
 
 describe('FilterEditorUtils', function () {
@@ -150,20 +171,20 @@ describe('FilterEditorUtils', function () {
     });
   });
 
-  describe('getFieldOptions', function () {
+  describe('getFilterableFields', function () {
     it('returns an empty array when no index patterns are provided', function () {
-      const fieldOptions = getFieldOptions();
+      const fieldOptions = getFilterableFields();
       expect(fieldOptions).to.eql([]);
     });
 
     it('returns the list of fields from the given index patterns', function () {
-      const fieldOptions = getFieldOptions([indexPattern]);
+      const fieldOptions = getFilterableFields([indexPattern]);
       expect(fieldOptions).to.be.an('array');
       expect(fieldOptions.length).to.be.greaterThan(0);
     });
 
     it('limits the fields to the filterable fields', function () {
-      const fieldOptions = getFieldOptions([indexPattern]);
+      const fieldOptions = getFilterableFields([indexPattern]);
       const nonFilterableFields = fieldOptions.filter(field => !field.filterable);
       expect(nonFilterableFields.length).to.be(0);
     });
@@ -337,6 +358,39 @@ describe('FilterEditorUtils', function () {
       expect(filter).to.be.ok();
       expect(filter.meta.negate).to.be(operator.negate);
       expect(filterBuilder.buildExistsFilter.called).to.be.ok();
+    });
+  });
+
+  describe('areIndexPatternsProvided', function () {
+    it('should return false when index patterns are not provided', function () {
+      expect(areIndexPatternsProvided(undefined)).to.be(false);
+      expect(areIndexPatternsProvided([])).to.be(false);
+      expect(areIndexPatternsProvided([undefined])).to.be(false);
+    });
+
+    it('should return true when index patterns are provided', function () {
+      const indexPatternMock = {};
+      expect(areIndexPatternsProvided([indexPatternMock])).to.be(true);
+    });
+  });
+
+  describe('isFilterPinned', function () {
+    it('should return false when the store is appState', function () {
+      const filter = { $state: { store: 'appState' } };
+      expect(isFilterPinned(filter, false)).to.be(false);
+      expect(isFilterPinned(filter, true)).to.be(false);
+    });
+
+    it('should return true when the store is globalState', function () {
+      const filter = { $state: { store: 'globalState' } };
+      expect(isFilterPinned(filter, false)).to.be(true);
+      expect(isFilterPinned(filter, true)).to.be(true);
+    });
+
+    it('should return the default when the store does not exist', function () {
+      const filter = {};
+      expect(isFilterPinned(filter, false)).to.be(false);
+      expect(isFilterPinned(filter, true)).to.be(true);
     });
   });
 });

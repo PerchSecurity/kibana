@@ -1,13 +1,30 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import _ from 'lodash';
 import expect from 'expect.js';
-import ngMock from 'ng_mock';
-import { AggTypesParamTypesBaseProvider } from 'ui/agg_types/param_types/base';
-import { AggTypesParamTypesStringProvider } from 'ui/agg_types/param_types/string';
+import { BaseParamType } from '../../param_types/base';
+import { StringParamType } from '../../param_types/string';
 
-module.exports = describe('String', function () {
+// eslint-disable-next-line @elastic/kibana-custom/no-default-export
+export default describe('String', function () {
   const paramName = 'json_test';
-  let BaseAggParam;
-  let StringAggParam;
   let aggParam;
   let aggConfig;
   let output;
@@ -19,24 +36,21 @@ module.exports = describe('String', function () {
       type: 'string'
     };
 
-    aggParam = new StringAggParam(_.defaults(config, defaults));
+    aggParam = new StringParamType(_.defaults(config, defaults));
   }
 
-  beforeEach(ngMock.module('kibana'));
 
   // fetch our deps
-  beforeEach(ngMock.inject(function (Private) {
-    BaseAggParam = Private(AggTypesParamTypesBaseProvider);
-    StringAggParam = Private(AggTypesParamTypesStringProvider);
+  beforeEach(function () {
 
     aggConfig = { params: {} };
     output = { params: {} };
-  }));
+  });
 
   describe('constructor', function () {
-    it('it is an instance of BaseAggParam', function () {
+    it('it is an instance of BaseParamType', function () {
       initAggParam();
-      expect(aggParam).to.be.a(BaseAggParam);
+      expect(aggParam).to.be.a(BaseParamType);
     });
   });
 

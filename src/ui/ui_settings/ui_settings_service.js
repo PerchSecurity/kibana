@@ -1,43 +1,63 @@
-import { defaultsDeep, noop } from 'lodash';
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 
-function hydrateUserSettings(userSettings) {
-  return Object.keys(userSettings)
-    .map(key => ({ key, userValue: userSettings[key] }))
-    .filter(({ userValue }) => userValue !== null)
-    .reduce((acc, { key, userValue }) => ({ ...acc, [key]: { userValue } }), {});
-}
+import { defaultsDeep } from 'lodash';
+import Boom from 'boom';
+
+import { createOrUpgradeSavedConfig } from './create_or_upgrade_saved_config';
 
 /**
  *  Service that provides access to the UiSettings stored in elasticsearch.
- *
  *  @class UiSettingsService
- *  @param {Object} options
- *  @property {string} options.index Elasticsearch index name where settings are stored
- *  @property {string} options.type type of ui settings Elasticsearch doc
- *  @property {string} options.id id of ui settings Elasticsearch doc
- *  @property {AsyncFunction} options.callCluster function that accepts a method name and
- *                            param object which causes a request via some elasticsearch client
- *  @property {AsyncFunction} [options.readInterceptor] async function that is called when the
- *                            UiSettingsService does a read() an has an oportunity to intercept the
- *                            request and return an alternate `_source` value to use.
  */
 export class UiSettingsService {
+  /**
+   *  @constructor
+   *  @param {Object} options
+   *  @property {string} options.type type of SavedConfig object
+   *  @property {string} options.id id of SavedConfig object
+   *  @property {number} options.buildNum
+   *  @property {SavedObjectsClient} options.savedObjectsClient
+   *  @property {Function} [options.getDefaults]
+   *  @property {Function} [options.log]
+   */
   constructor(options) {
     const {
       type,
       id,
+      buildNum,
       savedObjectsClient,
-      readInterceptor = noop,
       // we use a function for getDefaults() so that defaults can be different in
       // different scenarios, and so they can change over time
       getDefaults = () => ({}),
+      // function that accepts log messages in the same format as server.log
+      log = () => {},
+      overrides = {},
     } = options;
 
-    this._savedObjectsClient = savedObjectsClient;
-    this._getDefaults = getDefaults;
-    this._readInterceptor = readInterceptor;
     this._type = type;
     this._id = id;
+    this._buildNum = buildNum;
+    this._savedObjectsClient = savedObjectsClient;
+    this._getDefaults = getDefaults;
+    this._overrides = overrides;
+    this._log = log;
   }
 
   async getDefaults() {
@@ -68,11 +88,30 @@ export class UiSettingsService {
   }
 
   async getUserProvided(options) {
-    return hydrateUserSettings(await this._read(options));
+    const userProvided = {};
+
+    // write the userValue for each key stored in the saved object that is not overridden
+    for (const [key, userValue] of Object.entries(await this._read(options))) {
+      if (userValue !== null && !this.isOverridden(key)) {
+        userProvided[key] = {
+          userValue
+        };
+      }
+    }
+
+    // write all overridden keys, dropping the userValue is override is null and
+    // adding keys for overrides that are not in saved object
+    for (const [key, userValue] of Object.entries(this._overrides)) {
+      userProvided[key] = userValue === null
+        ? { isOverridden: true }
+        : { isOverridden: true, userValue };
+    }
+
+    return userProvided;
   }
 
   async setMany(changes) {
-    await this._write(changes);
+    await this._write({ changes });
   }
 
   async set(key, value) {
@@ -91,18 +130,47 @@ export class UiSettingsService {
     await this.setMany(changes);
   }
 
-  async _write(changes) {
-    await this._savedObjectsClient.update(this._type, this._id, changes);
+  isOverridden(key) {
+    return this._overrides.hasOwnProperty(key);
+  }
+
+  assertUpdateAllowed(key) {
+    if (this.isOverridden(key)) {
+      throw Boom.badRequest(`Unable to update "${key}" because it is overridden`);
+    }
+  }
+
+  async _write({ changes, autoCreateOrUpgradeIfMissing = true }) {
+    for (const key of Object.keys(changes)) {
+      this.assertUpdateAllowed(key);
+    }
+
+    try {
+      await this._savedObjectsClient.update(this._type, this._id, changes);
+    } catch (error) {
+      const { isNotFoundError } = this._savedObjectsClient.errors;
+      if (!isNotFoundError(error) || !autoCreateOrUpgradeIfMissing) {
+        throw error;
+      }
+
+      await createOrUpgradeSavedConfig({
+        savedObjectsClient: this._savedObjectsClient,
+        version: this._id,
+        buildNum: this._buildNum,
+        log: this._log,
+      });
+
+      await this._write({
+        changes,
+        autoCreateOrUpgradeIfMissing: false
+      });
+    }
   }
 
   async _read(options = {}) {
-    const interceptValue = await this._readInterceptor(options);
-    if (interceptValue != null) {
-      return interceptValue;
-    }
-
     const {
-      ignore401Errors = false
+      ignore401Errors = false,
+      autoCreateOrUpgradeIfMissing = true
     } = options;
 
     const {
@@ -113,7 +181,6 @@ export class UiSettingsService {
     } = this._savedObjectsClient.errors;
 
     const isIgnorableError = error => (
-      isNotFoundError(error) ||
       isForbiddenError(error) ||
       isEsUnavailableError(error) ||
       (ignore401Errors && isNotAuthorizedError(error))
@@ -123,6 +190,31 @@ export class UiSettingsService {
       const resp = await this._savedObjectsClient.get(this._type, this._id);
       return resp.attributes;
     } catch (error) {
+      if (isNotFoundError(error) && autoCreateOrUpgradeIfMissing) {
+        const failedUpgradeAttributes = await createOrUpgradeSavedConfig({
+          savedObjectsClient: this._savedObjectsClient,
+          version: this._id,
+          buildNum: this._buildNum,
+          log: this._log,
+          onWriteError(error, attributes) {
+            if (isNotAuthorizedError(error) || isForbiddenError(error)) {
+              return attributes;
+            }
+
+            throw error;
+          }
+        });
+
+        if (!failedUpgradeAttributes) {
+          return await this._read({
+            ...options,
+            autoCreateOrUpgradeIfMissing: false
+          });
+        }
+
+        return failedUpgradeAttributes;
+      }
+
       if (isIgnorableError(error)) {
         return {};
       }

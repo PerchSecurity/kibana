@@ -1,17 +1,36 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import Joi from 'joi';
 import _ from 'lodash';
 import override from './override';
 import createDefaultSchema from './schema';
-import { pkg, unset } from '../../utils';
-import { deepCloneWithBuffers as clone } from '../../utils';
+import { pkg, unset, deepCloneWithBuffers as clone, IS_KIBANA_DISTRIBUTABLE } from '../../utils';
 
 const schema = Symbol('Joi Schema');
 const schemaExts = Symbol('Schema Extensions');
 const vals = Symbol('config values');
 
-module.exports = class Config {
+export class Config {
   static withDefaultSchema(settings = {}) {
-    return new Config(createDefaultSchema(), settings);
+    const defaultSchema = createDefaultSchema();
+    return new Config(defaultSchema, settings);
   }
 
   constructor(initialSchema, initialSettings) {
@@ -74,7 +93,7 @@ module.exports = class Config {
     let env = newVals.env;
     delete newVals.env;
     if (_.isObject(env)) env = env.name;
-    if (!env) env = process.env.NODE_ENV || 'production';
+    if (!env) env = 'production';
 
     const dev = env === 'development';
     const prod = env === 'production';
@@ -88,8 +107,8 @@ module.exports = class Config {
       notDev: !dev,
       version: _.get(pkg, 'version'),
       branch: _.get(pkg, 'branch'),
-      buildNum: dev ? Math.pow(2, 53) - 1 : _.get(pkg, 'build.number', NaN),
-      buildSha: dev ? 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX' : _.get(pkg, 'build.sha', '')
+      buildNum: IS_KIBANA_DISTRIBUTABLE ? pkg.build.number : Number.MAX_SAFE_INTEGER,
+      buildSha: IS_KIBANA_DISTRIBUTABLE ? pkg.build.sha : 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
     };
 
     if (!context.dev && !context.prod) {
@@ -124,6 +143,17 @@ module.exports = class Config {
     return clone(value);
   }
 
+  getDefault(key) {
+    const schemaKey = Array.isArray(key) ? key.join('.') : key;
+
+    const subSchema = Joi.reach(this.getSchema(), schemaKey);
+    if (!subSchema) {
+      throw new Error(`Unknown config key: ${key}.`);
+    }
+
+    return clone(_.get(Joi.describe(subSchema), 'flags.default'));
+  }
+
   has(key) {
     function has(key, schema, path) {
       path = path || [];
@@ -145,7 +175,7 @@ module.exports = class Config {
       }
     }
 
-    if (_.isArray(key)) {
+    if (Array.isArray(key)) {
       // TODO: add .has() support for array keys
       key = key.join('.');
     }
@@ -175,4 +205,4 @@ module.exports = class Config {
 
     return this[schema];
   }
-};
+}

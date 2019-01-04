@@ -1,16 +1,36 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import d3 from 'd3';
-define(function () {
-  return function ChartSplitFactory() {
 
-    /*
-     * Adds div DOM elements to the `.chart-wrapper` element based on the data layout.
-     * For example, if the data has rows, it returns the same number of
-     * `.chart` elements as row objects.
-     */
+// eslint-disable-next-line @elastic/kibana-custom/no-default-export
+export default function ChartSplitFactory() {
 
-    return function split(selection) {
-      selection.each(function (data) {
-        const div = d3.select(this)
+  /*
+   * Adds div DOM elements to the `.chart-wrapper` element based on the data layout.
+   * For example, if the data has rows, it returns the same number of
+   * `.chart` elements as row objects.
+   */
+
+  return function split(selection) {
+    selection.each(function (data) {
+      const div = d3.select(this)
         .attr('class', function () {
           if (data.rows) {
             return 'chart-wrapper-row';
@@ -20,9 +40,9 @@ define(function () {
             return 'chart-wrapper';
           }
         });
-        let divClass;
+      let divClass;
 
-        const charts = div.selectAll('charts')
+      const charts = div.selectAll('charts')
         .append('div')
         .data(function (d) {
           if (d.rows) {
@@ -37,15 +57,14 @@ define(function () {
           }
         })
         .enter()
-          .append('div')
-          .attr('class', function () {
-            return divClass;
-          });
+        .append('div')
+        .attr('class', function () {
+          return divClass;
+        });
 
-        if (!data.series) {
-          charts.call(split);
-        }
-      });
-    };
+      if (!data.series) {
+        charts.call(split);
+      }
+    });
   };
-});
+}

@@ -1,3 +1,22 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import d3 from 'd3';
 import $ from 'jquery';
 import { VislibVisualizationsChartProvider } from './_chart';
@@ -37,6 +56,8 @@ export function GaugeChartProvider(Private) {
           const width = Math.floor(verticalSplit ? $(this).width() : containerWidth / data.series.length);
           const height = Math.floor((verticalSplit ? containerHeight / data.series.length : $(this).height()) - 25);
 
+          if (height < 0 || width < 0) return;
+
           div
             .style('text-align', 'center')
             .style('overflow-y', 'auto');
@@ -45,45 +66,25 @@ export function GaugeChartProvider(Private) {
             const svg = div.append('svg')
               .style('display', 'inline-block')
               .style('overflow', 'hidden')
+              .attr('focusable', 'false')
               .attr('width', width);
-
-            if (self.gaugeConfig.type === 'simple') {
-              svg.attr('height', height);
-            }
 
             const g = svg.append('g');
 
             const gauges = self.gauge.drawGauge(g, series, width, height);
 
-            if (self.gaugeConfig.type === 'simple') {
-              const bbox = svg.node().firstChild.getBBox();
-              svg
-                .attr('width', () => {
-                  return bbox.width;
-                })
-                .attr('height', () => {
-                  return bbox.height;
-                });
-
-              const transformX = bbox.width / 2;
-              const transformY = bbox.height / 2;
-              g.attr('transform', `translate(${transformX}, ${transformY})`);
-            } else {
-              svg.attr('height', height);
-              const transformX = width / 2;
-              const transformY = self.gaugeConfig.gaugeType === 'Arc' ? height / (2 * 0.75) : height / 2;
-              g.attr('transform', `translate(${transformX}, ${transformY})`);
-            }
+            svg.attr('height', height);
+            const transformX = width / 2;
+            const transformY = self.gaugeConfig.gaugeType === 'Arc' ? height / (2 * 0.75) : height / 2;
+            g.attr('transform', `translate(${transformX}, ${transformY})`);
 
             self.addEvents(gauges);
           });
 
-          if (self.gaugeConfig.type !== 'simple') {
-            div.append('div')
-              .attr('class', 'chart-title')
-              .style('text-align', 'center')
-              .text(data.label || data.yAxisLabel);
-          }
+          div.append('div')
+            .attr('class', 'chart-title')
+            .style('text-align', 'center')
+            .text(data.label || data.yAxisLabel);
 
           self.events.emit('rendered', {
             chart: data

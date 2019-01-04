@@ -1,22 +1,39 @@
-import { VisVisTypeProvider } from 'ui/vis/vis_type';
-import { VislibVisTypeVislibVisTypeProvider } from 'ui/vislib_vis_type/vislib_vis_type';
-import { VisSchemasProvider } from 'ui/vis/schemas';
-import pointSeriesTemplate from 'plugins/kbn_vislib_vis_types/editors/point_series.html';
-import image from './images/icon-area.svg';
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 
-export default function PointSeriesVisType(Private) {
-  const VisType = Private(VisVisTypeProvider);
-  const VislibVisType = Private(VislibVisTypeVislibVisTypeProvider);
-  const Schemas = Private(VisSchemasProvider);
+import { VisFactoryProvider } from 'ui/vis/vis_factory';
+import { Schemas } from 'ui/vis/editors/default/schemas';
+import { CATEGORY } from 'ui/vis/vis_category';
+import pointSeriesTemplate from './editors/point_series.html';
 
-  return new VislibVisType({
+export default function PointSeriesVisType(Private, i18n) {
+  const VisFactory = Private(VisFactoryProvider);
+
+  return VisFactory.createVislibVisualization({
     name: 'area',
-    title: 'Area',
-    image,
-    description: 'Emphasize the quantity beneath a line chart',
-    category: VisType.CATEGORY.BASIC,
-    params: {
+    title: i18n('kbnVislibVisTypes.area.areaTitle', { defaultMessage: 'Area' }),
+    icon: 'visArea',
+    description: i18n('kbnVislibVisTypes.area.areaDescription', { defaultMessage: 'Emphasize the quantity beneath a line chart' }),
+    category: CATEGORY.BASIC,
+    visConfig: {
       defaults: {
+        type: 'area',
         grid: {
           categoryLines: false,
           style: {
@@ -29,8 +46,7 @@ export default function PointSeriesVisType(Private) {
             type: 'category',
             position: 'bottom',
             show: true,
-            style: {
-            },
+            style: {},
             scale: {
               type: 'linear'
             },
@@ -48,8 +64,7 @@ export default function PointSeriesVisType(Private) {
             type: 'value',
             position: 'left',
             show: true,
-            style: {
-            },
+            style: {},
             scale: {
               type: 'linear',
               mode: 'normal'
@@ -84,31 +99,34 @@ export default function PointSeriesVisType(Private) {
         times: [],
         addTimeMarker: false,
       },
-      positions: ['top', 'left', 'right', 'bottom'],
-      chartTypes: [{
-        value: 'line',
-        text: 'line'
-      }, {
-        value: 'area',
-        text: 'area'
-      }, {
-        value: 'histogram',
-        text: 'bar'
-      }],
-      axisModes: ['normal', 'percentage', 'wiggle', 'silhouette'],
-      scaleTypes: ['linear', 'log', 'square root'],
-      chartModes: ['normal', 'stacked'],
-      interpolationModes: [{
-        value: 'linear',
-        text: 'straight',
-      }, {
-        value: 'cardinal',
-        text: 'smoothed',
-      }, {
-        value: 'step-after',
-        text: 'stepped',
-      }],
-      editor: pointSeriesTemplate,
+    },
+    editorConfig: {
+      collections: {
+        positions: ['top', 'left', 'right', 'bottom'],
+        chartTypes: [{
+          value: 'line',
+          text: 'line'
+        }, {
+          value: 'area',
+          text: 'area'
+        }, {
+          value: 'histogram',
+          text: 'bar'
+        }],
+        axisModes: ['normal', 'percentage', 'wiggle', 'silhouette'],
+        scaleTypes: ['linear', 'log', 'square root'],
+        chartModes: ['normal', 'stacked'],
+        interpolationModes: [{
+          value: 'linear',
+          text: 'straight',
+        }, {
+          value: 'cardinal',
+          text: 'smoothed',
+        }, {
+          value: 'step-after',
+          text: 'stepped',
+        }],
+      },
       optionTabs: [
         {
           name: 'advanced',
@@ -118,50 +136,50 @@ export default function PointSeriesVisType(Private) {
         },
         { name: 'options', title: 'Panel Settings', editor: pointSeriesTemplate },
       ],
-    },
-    schemas: new Schemas([
-      {
-        group: 'metrics',
-        name: 'metric',
-        title: 'Y-Axis',
-        aggFilter: ['!geo_centroid'],
-        min: 1,
-        defaults: [
-          { schema: 'metric', type: 'count' }
-        ]
-      },
-      {
-        group: 'metrics',
-        name: 'radius',
-        title: 'Dot Size',
-        min: 0,
-        max: 1,
-        aggFilter: ['count', 'avg', 'sum', 'min', 'max', 'cardinality']
-      },
-      {
-        group: 'buckets',
-        name: 'segment',
-        title: 'X-Axis',
-        min: 0,
-        max: 1,
-        aggFilter: '!geohash_grid'
-      },
-      {
-        group: 'buckets',
-        name: 'group',
-        title: 'Split Series',
-        min: 0,
-        max: 1,
-        aggFilter: '!geohash_grid'
-      },
-      {
-        group: 'buckets',
-        name: 'split',
-        title: 'Split Chart',
-        min: 0,
-        max: 1,
-        aggFilter: '!geohash_grid'
-      }
-    ])
+      schemas: new Schemas([
+        {
+          group: 'metrics',
+          name: 'metric',
+          title: i18n('kbnVislibVisTypes.area.metricsTitle', { defaultMessage: 'Y-Axis' }),
+          aggFilter: ['!geo_centroid', '!geo_bounds'],
+          min: 1,
+          defaults: [
+            { schema: 'metric', type: 'count' }
+          ]
+        },
+        {
+          group: 'metrics',
+          name: 'radius',
+          title: i18n('kbnVislibVisTypes.area.radiusTitle', { defaultMessage: 'Dot Size' }),
+          min: 0,
+          max: 1,
+          aggFilter: ['count', 'avg', 'sum', 'min', 'max', 'cardinality']
+        },
+        {
+          group: 'buckets',
+          name: 'segment',
+          title: i18n('kbnVislibVisTypes.area.segmentTitle', { defaultMessage: 'X-Axis' }),
+          min: 0,
+          max: 1,
+          aggFilter: ['!geohash_grid', '!filter']
+        },
+        {
+          group: 'buckets',
+          name: 'group',
+          title: i18n('kbnVislibVisTypes.area.groupTitle', { defaultMessage: 'Split Series' }),
+          min: 0,
+          max: 3,
+          aggFilter: ['!geohash_grid', '!filter']
+        },
+        {
+          group: 'buckets',
+          name: 'split',
+          title: i18n('kbnVislibVisTypes.area.splitTitle', { defaultMessage: 'Split Chart' }),
+          min: 0,
+          max: 1,
+          aggFilter: ['!geohash_grid', '!filter']
+        }
+      ])
+    }
   });
 }

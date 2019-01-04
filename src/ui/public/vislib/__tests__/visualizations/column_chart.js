@@ -1,3 +1,22 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import expect from 'expect.js';
 import ngMock from 'ng_mock';
 import _ from 'lodash';
@@ -10,9 +29,12 @@ import seriesNeg from 'fixtures/vislib/mock_data/date_histogram/_series_neg';
 import termsColumns from 'fixtures/vislib/mock_data/terms/_columns';
 import histogramRows from 'fixtures/vislib/mock_data/histogram/_rows';
 import stackedSeries from 'fixtures/vislib/mock_data/date_histogram/_stacked_series';
+import { seriesMonthlyInterval } from 'fixtures/vislib/mock_data/date_histogram/_series_monthly_interval';
+import { rowsSeriesWithHoles } from 'fixtures/vislib/mock_data/date_histogram/_rows_series_with_holes';
+import rowsWithZeros from 'fixtures/vislib/mock_data/date_histogram/_rows';
 import $ from 'jquery';
 import FixturesVislibVisFixtureProvider from 'fixtures/vislib/_vis_fixture';
-import 'ui/persisted_state';
+import '../../../persisted_state';
 
 // tuple, with the format [description, mode, data]
 const dataTypesArray = [
@@ -37,7 +59,11 @@ dataTypesArray.forEach(function (dataType) {
       addLegend: true,
       addTooltip: true,
       mode: mode,
-      zeroFill: true
+      zeroFill: true,
+      grid: {
+        categoryLines: true,
+        valueAxis: 'ValueAxis-1'
+      }
     };
 
     beforeEach(ngMock.module('kibana'));
@@ -100,7 +126,7 @@ dataTypesArray.forEach(function (dataType) {
       function checkChart(chart) {
         const rect = $(chart.chartEl).find('.series rect').get(0);
 
-        // check for existance of stuff and things
+        // check for existence of stuff and things
         return {
           click: !!rect.__onclick,
           mouseOver: !!rect.__onmouseover,
@@ -182,5 +208,121 @@ dataTypesArray.forEach(function (dataType) {
         });
       });
     });
+  });
+});
+
+describe('stackData method - data set with zeros in percentage mode', function () {
+  let vis;
+  let persistedState;
+  const visLibParams = {
+    type: 'histogram',
+    addLegend: true,
+    addTooltip: true,
+    mode: 'percentage',
+    zeroFill: true
+  };
+
+  beforeEach(ngMock.module('kibana'));
+  beforeEach(ngMock.inject(function (Private, $injector) {
+    vis = Private(FixturesVislibVisFixtureProvider)(visLibParams);
+    persistedState = new ($injector.get('PersistedState'))();
+    vis.on('brush', _.noop);
+  }));
+
+  afterEach(function () {
+    vis.destroy();
+  });
+
+  it('should not mutate the injected zeros', function () {
+    vis.render(seriesMonthlyInterval, persistedState);
+
+    expect(vis.handler.charts).to.have.length(1);
+    const chart = vis.handler.charts[0];
+    expect(chart.chartData.series).to.have.length(1);
+    const series = chart.chartData.series[0].values;
+    // with the interval set in seriesMonthlyInterval data, the point at x=1454309600000 does not exist
+    const point = _.find(series, 'x', 1454309600000);
+    expect(point).to.not.be(undefined);
+    expect(point.y).to.be(0);
+  });
+
+  it('should not mutate zeros that exist in the data', function () {
+    vis.render(rowsWithZeros, persistedState);
+
+    expect(vis.handler.charts).to.have.length(2);
+    const chart = vis.handler.charts[0];
+    expect(chart.chartData.series).to.have.length(5);
+    const series = chart.chartData.series[0].values;
+    const point = _.find(series, 'x', 1415826240000);
+    expect(point).to.not.be(undefined);
+    expect(point.y).to.be(0);
+  });
+});
+
+describe('datumWidth - split chart data set with holes', function () {
+  let vis;
+  let persistedState;
+  const visLibParams = {
+    type: 'histogram',
+    addLegend: true,
+    addTooltip: true,
+    mode: 'stacked',
+    zeroFill: true
+  };
+
+  beforeEach(ngMock.module('kibana'));
+  beforeEach(ngMock.inject(function (Private, $injector) {
+    vis = Private(FixturesVislibVisFixtureProvider)(visLibParams);
+    persistedState = new ($injector.get('PersistedState'))();
+    vis.on('brush', _.noop);
+    vis.render(rowsSeriesWithHoles, persistedState);
+  }));
+
+  afterEach(function () {
+    vis.destroy();
+  });
+
+  it('should not have bar widths that span multiple time bins', function () {
+    expect(vis.handler.charts.length).to.equal(1);
+    const chart = vis.handler.charts[0];
+    const rects = $(chart.chartEl).find('.series rect');
+    const MAX_WIDTH_IN_PIXELS = 27;
+    rects.each(function () {
+      const width = $(this).attr('width');
+      expect(width).to.be.lessThan(MAX_WIDTH_IN_PIXELS);
+    });
+  });
+});
+
+describe('datumWidth - monthly interval', function () {
+  let vis;
+  let persistedState;
+  const visLibParams = {
+    type: 'histogram',
+    addLegend: true,
+    addTooltip: true,
+    mode: 'stacked',
+    zeroFill: true
+  };
+
+  beforeEach(ngMock.module('kibana'));
+  beforeEach(ngMock.inject(function (Private, $injector) {
+    vis = Private(FixturesVislibVisFixtureProvider)(visLibParams);
+    persistedState = new ($injector.get('PersistedState'))();
+    vis.on('brush', _.noop);
+    vis.render(seriesMonthlyInterval, persistedState);
+  }));
+
+  afterEach(function () {
+    vis.destroy();
+  });
+
+  it('should vary bar width when date histogram intervals are not equal', function () {
+    expect(vis.handler.charts.length).to.equal(1);
+    const chart = vis.handler.charts[0];
+    const rects = $(chart.chartEl).find('.series rect');
+    const januaryBarWidth = $(rects.get(0)).attr('width');
+    const februaryBarWidth = $(rects.get(1)).attr('width');
+    expect(februaryBarWidth).to.be.lessThan(januaryBarWidth);
   });
 });

@@ -1,4 +1,4 @@
-<visualize-app class="app-container vis-editor vis-type-{{ vis.type.name }}">
+<visualize-app class="app-container visEditor visEditor--{{ vis.type.name }}">
   <!-- Local nav. -->
   <kbn-top-nav name="visualize" config="topNavMenu">
     <!-- Transcluded elements. -->
@@ -18,11 +18,16 @@
         ng-show="chrome.getVisible()"
         class="fullWidth"
       >
-        <!-- Block searching if the Visualization is linked to a Saved Search. -->
-        <div ng-if="vis.type.requiresSearch && $state.linked">
-          Linked to Saved Search &ldquo;{{ savedVis.savedSearch.title }}&rdquo;
+        <div ng-if="vis.type.requiresSearch && state.linked">
+          Linked to Saved Search
+          <a
+            href="#/discover/{{savedVis.savedSearch.id}}"
+          >
+            {{ savedVis.savedSearch.title }}
+          </a>
           &nbsp;
           <a
+            data-test-subj="unlinkSavedSearch"
             href=""
             ng-dblclick="unlink()"
             tooltip="Double click to unlink from Saved Search"
@@ -31,107 +36,44 @@
           </a>
         </div>
 
-        <!-- Allow searching if there is no linked Saved Search. -->
-        <form
-          ng-if="vis.type.requiresSearch && !$state.linked"
-          name="queryInput"
-          ng-submit="fetch()"
-          class="fullWidth"
-        >
-          <div class="typeahead" kbn-typeahead="visualize" on-select="fetch()">
-            <div class="kuiLocalSearch">
-              <div class="kuiLocalSearchAssistedInput">
-                <input
-                  ng-model="state.query"
-                  parse-query
-                  input-focus
-                  kbn-typeahead-input
-                  placeholder="Search... (e.g. status:200 AND extension:PHP)"
-                  type="text"
-                  class="kuiLocalSearchInput kuiLocalSearchInput--lucene"
-                  ng-class="{'kuiLocalSearchInput-isInvalid': queryInput.$invalid}"
-                >
-                <div class="kuiLocalSearchAssistedInput__assistance">
-                  <p class="kuiText">
-                    <a
-                      class="kuiLink"
-                      ng-href="{{queryDocLinks.luceneQuerySyntax}}"
-                      target="_blank"
-                    >
-                      Uses lucene query syntax
-                    </a>
-                  </p>
-                </div>
-              </div>
-              <button
-                type="submit"
-                aria-label="Search"
-                class="kuiLocalSearchButton"
-                ng-disabled="queryInput.$invalid"
-              >
-                <span aria-hidden="true" class="kuiIcon fa-search"></span>
-              </button>
-            </div>
-            <kbn-typeahead-items></kbn-typeahead-items>
-          </div>
-        </form>
+        <div ng-if="vis.type.requiresSearch && vis.type.options.showQueryBar" class="fullWidth">
+          <query-bar
+            query="state.query"
+            app-name="'visualize'"
+            on-submit="updateQueryAndFetch"
+            disable-auto-focus="true"
+            index-patterns="[indexPattern]"
+          ></query-bar>
+        </div>
       </div>
     </div>
   </kbn-top-nav>
 
   <!-- Filters. -->
   <filter-bar
+    ng-if="vis.type.options.showFilterBar"
     state="state"
     index-patterns="[indexPattern]"
   ></filter-bar>
 
-  <!-- Custom, full-screen editing UI. -->
   <div
-    ng-if="vis.type.fullEditor"
-    class="vis-editor-content"
+    class="euiCallOut euiCallOut--primary euiCallOut--small hide-for-sharing"
+    ng-if="vis.type.shouldMarkAsExperimentalInUI()"
+    data-test-subj="experimentalVisInfo"
   >
-    <vis-editor-vis-options
-      vis="vis"
-      saved-vis="savedVis"
-      editor="vis.type.params.editor"
-      ui-state="uiState"
-      stage-editable-vis="stageEditableVis"
-      class="vis-editor-full-options"
-    ></vis-editor-vis-options>
-  </div>
-
-  <!-- Traditional sidebar-and-visualization editor. -->
-  <div
-    ng-if="!vis.type.fullEditor"
-    class="vis-editor-content"
-  >
-    <!-- Sidebar -->
-    <div
-      class="collapsible-sidebar"
-      ng-if="chrome.getVisible()"
-    >
-      <vis-editor-sidebar
-        vis="editableVis"
-        class="vis-editor-sidebar"
-      ></vis-editor-sidebar>
-    </div>
-
-    <!-- Visualization -->
-    <div
-      class="vis-editor-canvas"
-      ng-class="{ embedded: !chrome.getVisible() }"
-    >
-      <visualize
-        vis="vis"
-        data-shared-item
-        data-title="{{savedVis.lastSavedTitle}}"
-        data-description="{{savedVis.description}}"
-        render-counter
-        ui-state="uiState"
-        show-spy-panel="chrome.getVisible()"
-        editable-vis="editableVis"
-        search-source="savedVis.searchSource">
-      </visualize>
+    <div class="euiText">
+      <p ng-bind-html="getAdditionalMessage()"></p>
     </div>
   </div>
+
+  <div class="visualize" ng-if="!chrome.getVisible()"/>
+
+  <visualization-editor
+    ng-if="chrome.getVisible()"
+    saved-obj="savedVis"
+    ui-state="uiState"
+    time-range="timeRange"
+    class="visEditor__content"
+  />
+
 </visualize-app>

@@ -1,8 +1,28 @@
-import React, { Component, PropTypes } from 'react';
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import PropTypes from 'prop-types';
+import React, { Component } from 'react';
 import _ from 'lodash';
-import getLastValue from '../lib/get_last_value';
+import getLastValue from '../../../common/get_last_value';
 import reactcss from 'reactcss';
-import calculateCorrdinates from '../lib/calculate_corrdinates';
+import calculateCoordinates from '../lib/calculate_coordinates';
 
 class Metric extends Component {
 
@@ -21,7 +41,7 @@ class Metric extends Component {
   componentWillMount() {
     const check = () => {
       this.timeout = setTimeout(() => {
-        const newState = calculateCorrdinates(this.inner, this.resize, this.state);
+        const newState = calculateCoordinates(this.inner, this.resize, this.state);
         if (newState && this.state && !_.isEqual(newState, this.state)) {
           this.handleResize();
         }
@@ -41,7 +61,7 @@ class Metric extends Component {
 
   handleResize() {
     // Bingo!
-    const newState = calculateCorrdinates(this.inner, this.resize, this.state);
+    const newState = calculateCoordinates(this.inner, this.resize, this.state);
     this.setState(newState);
   }
 
@@ -116,17 +136,34 @@ class Metric extends Component {
       );
     }
 
+    let additionalLabel;
+    if (this.props.additionalLabel) {
+      additionalLabel = (
+        <div className="rhythm_metric__additionalLabel">
+          {this.props.additionalLabel}
+        </div>
+      );
+    }
+
     return (
       <div className="rhythm_metric" style={styles.container}>
         <div
           ref={(el) => this.resize = el}
-          className="rhythm_metric__resize">
+          className="rhythm_metric__resize"
+        >
           <div ref={(el) => this.inner = el} className="rhythm_metric__inner" style={styles.inner}>
             <div className="rhythm_metric__primary">
               { primaryLabel }
-              <div style={styles.primary_value} className="rhythm_metric__primary-value">{ primaryValue }</div>
+              <div
+                style={styles.primary_value}
+                data-test-subj="tsvbMetricValue"
+                className="rhythm_metric__primary-value"
+              >
+                { primaryValue }
+              </div>
             </div>
             { secondarySnippet }
+            {additionalLabel}
           </div>
         </div>
       </div>
@@ -139,7 +176,8 @@ Metric.propTypes = {
   backgroundColor: PropTypes.string,
   metric: PropTypes.object,
   secondary: PropTypes.object,
-  reversed: PropTypes.bool
+  reversed: PropTypes.bool,
+  additionalLabel: PropTypes.string
 };
 
 export default Metric;

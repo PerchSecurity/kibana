@@ -1,51 +1,45 @@
-import _ from 'lodash';
-import angular from 'angular';
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 
-export function getDefaultQuery() {
-  return { match_all: {} };
-}
+import { toUser } from './lib/to_user';
+import { fromUser } from './lib/from_user';
 
-export function isDefaultQuery(query) {
-  return _.isEqual(query, getDefaultQuery());
-}
+import { uiModules } from '../modules';
+uiModules
+  .get('kibana')
+  .directive('parseQuery', function () {
 
-export function getTextQuery(query) {
-  return {
-    query_string: { query }
-  };
-}
+    return {
+      restrict: 'A',
+      require: 'ngModel',
+      scope: {
+        'ngModel': '='
+      },
+      link: function ($scope, elem, attr, ngModel) {
+        const init = function () {
+          $scope.ngModel = fromUser($scope.ngModel);
+        };
 
-export function isTextQuery(query) {
-  return _.has(query, 'query_string');
-}
+        ngModel.$parsers.push(fromUser);
+        ngModel.$formatters.push(toUser);
 
-export function getQueryText(query) {
-  return _.get(query, ['query_string', 'query']) || '';
-}
-
-export function parseQuery(query) {
-  if (!_.isString(query) || query.trim() === '') {
-    return getDefaultQuery();
-  }
-
-  try {
-    const parsedQuery = JSON.parse(query);
-    if (_.isObject(parsedQuery)) {
-      return parsedQuery;
-    }
-    return getTextQuery(query);
-  } catch (e) {
-    return getTextQuery(query);
-  }
-}
-
-export function formatQuery(query) {
-  if (query == null || isDefaultQuery(query)) {
-    return '';
-  } else if (isTextQuery(query)) {
-    return getQueryText(query);
-  } else if (_.isObject(query)) {
-    return angular.toJson(query);
-  }
-  return '' + query;
-}
+        init();
+      }
+    };
+  });

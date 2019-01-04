@@ -1,3 +1,7 @@
+.thor__visualization {
+  width: 100%;
+  height: 100%;
+}
 .thor__input {
   padding: 7px 10px;
   border-radius: 4px;
@@ -79,16 +83,16 @@
   }
 }
 
+/**
+  * 1. The absolute positioning broke reports and was fighting with display: flex,
+  *    setting the flex-basis to 100% fixed the issue the abs positioning was trying to fix
+  */
 .dashboard__visualization {
   display: flex;
   flex-direction: column;
-  flex: 1 0 auto;
+  flex: 1 1 100%; /* 1 */
   padding: 10px;
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
+  height: 100%;
 }
 
 .dashboard__visualization-title {
@@ -102,5 +106,18 @@
   &.reversed {
     color: rgba(255,255,255,0.8);
   }
+}
+
+.tsvb-table__value {
+  font-size: 1.1em;
+  text-align: right;
+}
+
+.tsvb-table__trend {
+  margin-left: 5px;
+}
+
+.tsvb-table__columnName {
+  text-align: right;
 }
 

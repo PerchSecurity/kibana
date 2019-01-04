@@ -1,3 +1,22 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import _ from 'lodash';
 
 export function VislibTypesPointSeries() {
@@ -26,7 +45,8 @@ export function VislibTypesPointSeries() {
 
     return {
       ...matchingSeriesParams,
-      data: seri
+      data: seri,
+      radiusRatio: cfg.radiusRatio
     };
   };
 
@@ -84,9 +104,9 @@ export function VislibTypesPointSeries() {
               type: config.scale,
               setYExtents: config.setYExtents,
               defaultYExtents: config.defaultYExtents,
-              min : isUserDefinedYAxis ? config.yAxis.min : undefined,
-              max : isUserDefinedYAxis ? config.yAxis.max : undefined,
-              mode : mode
+              min: isUserDefinedYAxis ? config.yAxis.min : undefined,
+              max: isUserDefinedYAxis ? config.yAxis.max : undefined,
+              mode: mode
             },
             labels: {
               axisFormatter: data.data.yAxisFormatter || data.get('yAxisFormatter')
@@ -177,7 +197,7 @@ export function VislibTypesPointSeries() {
       const defaults = create()(cfg, data);
       const seriesLimit = 25;
       const hasCharts = defaults.charts.length;
-      const tooManySeries = defaults.charts[0].series.length > seriesLimit;
+      const tooManySeries = defaults.charts.length && defaults.charts[0].series.length > seriesLimit;
       if (hasCharts && tooManySeries) {
         defaults.error = 'There are too many series defined.';
       }
@@ -196,7 +216,7 @@ export function VislibTypesPointSeries() {
         },
         labels: {
           filter: false,
-          axisFormatter:  function (val) { return val; }
+          axisFormatter: function (val) { return val; }
         },
         style: {
           rangePadding: 0,

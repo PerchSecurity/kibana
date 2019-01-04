@@ -1,31 +1,45 @@
-import { PointSeriesGetSeriesProvider } from 'ui/agg_response/point_series/_get_series';
-import { PointSeriesGetAspectsProvider } from 'ui/agg_response/point_series/_get_aspects';
-import { PointSeriesInitYAxisProvider } from 'ui/agg_response/point_series/_init_y_axis';
-import { PointSeriesInitXAxisProvider } from 'ui/agg_response/point_series/_init_x_axis';
-import { PointSeriesOrderedDateAxisProvider } from 'ui/agg_response/point_series/_ordered_date_axis';
-import { PointSeriesTooltipFormatter } from 'ui/agg_response/point_series/_tooltip_formatter';
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import { getSeries } from './_get_series';
+import { getAspects } from './_get_aspects';
+import { initYAxis } from './_init_y_axis';
+import { initXAxis } from './_init_x_axis';
+import { orderedDateAxis } from './_ordered_date_axis';
+import { PointSeriesTooltipFormatter } from './_tooltip_formatter';
 
 export function AggResponsePointSeriesProvider(Private) {
 
-  const getSeries = Private(PointSeriesGetSeriesProvider);
-  const getAspects = Private(PointSeriesGetAspectsProvider);
-  const initYAxis = Private(PointSeriesInitYAxisProvider);
-  const initXAxis = Private(PointSeriesInitXAxisProvider);
-  const setupOrderedDateXAxis = Private(PointSeriesOrderedDateAxisProvider);
   const tooltipFormatter = Private(PointSeriesTooltipFormatter);
 
-  return function pointSeriesChartDataFromTable(vis, table) {
+  return function pointSeriesChartDataFromTable(table) {
     const chart = {};
-    const aspects = chart.aspects = getAspects(vis, table);
+    const aspects = chart.aspects = getAspects(table);
 
     chart.tooltipFormatter = tooltipFormatter;
 
     initXAxis(chart);
     initYAxis(chart);
 
-    const datedX = aspects.x.agg.type.ordered && aspects.x.agg.type.ordered.date;
+    const datedX = aspects.x.aggConfig.type.ordered && aspects.x.aggConfig.type.ordered.date;
     if (datedX) {
-      setupOrderedDateXAxis(vis, chart);
+      orderedDateAxis(chart);
     }
 
     chart.series = getSeries(table.rows, chart);

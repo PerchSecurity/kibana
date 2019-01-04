@@ -21,6 +21,14 @@
   fill: @svg-tick-text-color;
 }
 
+.label-line {
+  stroke: @svg-tick-text-color;
+}
+
+.label-text {
+  fill: @svg-tick-text-color;
+}
+
 /* Brush Styling */
 .brush .extent {
   stroke: @svg-brush-color;
@@ -28,48 +36,28 @@
   shape-rendering: crispEdges;
 }
 
-@vis-hover-opacity: 0.65;
+@vis-hover-opacity: 0.8;
 
-/* SVG Element Default Styling */
-rect {
-  opacity: 1;
-
-  &:hover {
-    opacity: @vis-hover-opacity;
-  }
-}
-
-circle {
-  opacity: 0;
-
-  &:hover {
-    opacity: 1;
-    stroke-width: 10px;
-    stroke-opacity: @vis-hover-opacity;
-  }
-}
 
 .overlap_area {
-  opacity: 0.6;
+  opacity: 0.8;
 }
 
 .series > path,
 .series > rect {
-  fill-opacity: 0.6;
+  fill-opacity: 0.8;
   stroke-opacity: 1;
+  stroke-width: 0;
 }
 
 .blur_shape {
   opacity: 0.3 !important;
 }
 
-path {
-  &:hover {
-    //opacity: @vis-hover-opacity;
-  }
-}
 
 .slice {
+  stroke: white;
+  stroke-width: 2px;
   &:hover {
     opacity: @vis-hover-opacity;
   }
@@ -98,4 +86,29 @@ path {
   opacity: 0.05;
   fill: @svg-endzone-bg;
   pointer-events: none;
+}
+
+// SASSTODO: Make sure these colors convert to theme variables
+.tab-dashboard.theme-dark {
+  .axis {
+    line, path {
+      stroke: @gray8;
+    }
+  }
+
+  .tick text {
+    fill: @gray10;
+  }
+
+  .chart-label {
+    fill: @gray10;
+  }
+
+  .brush .extent {
+    stroke: @white;
+  }
+
+  .endzone {
+    fill: @white;
+  }
 }

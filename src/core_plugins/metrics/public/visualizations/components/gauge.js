@@ -1,10 +1,30 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import _ from 'lodash';
-import React, { Component, PropTypes } from 'react';
-import getLastValue from '../lib/get_last_value';
+import PropTypes from 'prop-types';
+import React, { Component } from 'react';
+import getLastValue from '../../../common/get_last_value';
 import getValueBy from '../lib/get_value_by';
 import GaugeVis from './gauge_vis';
 import reactcss from 'reactcss';
-import calculateCorrdinates from '../lib/calculate_corrdinates';
+import calculateCoordinates from '../lib/calculate_coordinates';
 
 class Gauge extends Component {
 
@@ -24,7 +44,7 @@ class Gauge extends Component {
   componentWillMount() {
     const check = () => {
       this.timeout = setTimeout(() => {
-        const newState = calculateCorrdinates(this.inner, this.resize, this.state);
+        const newState = calculateCoordinates(this.inner, this.resize, this.state);
         if (newState && this.state && !_.isEqual(newState, this.state)) {
           this.handleResize();
         }
@@ -44,7 +64,7 @@ class Gauge extends Component {
 
   handleResize() {
     // Bingo!
-    const newState = calculateCorrdinates(this.inner, this.resize, this.state);
+    const newState = calculateCoordinates(this.inner, this.resize, this.state);
     this.setState(newState);
   }
 
@@ -55,7 +75,7 @@ class Gauge extends Component {
       translateX,
       translateY
     } = this.state;
-    const value = metric && getLastValue(metric.data, 5) || 0;
+    const value = metric && getLastValue(metric.data) || 0;
     const max = metric && getValueBy('max', metric.data) || 1;
     const formatter = (metric && (metric.tickFormatter || metric.formatter)) ||
       this.props.tickFormatter || ((v) => v);
@@ -87,19 +107,33 @@ class Gauge extends Component {
     };
 
     let metrics;
+    let additionalLabel;
+    if (this.props.additionalLabel) {
+      additionalLabel = (
+        <div className="thorGauge_additionalLabel">
+          {this.props.additionalLabel}
+        </div>
+      );
+    }
     if (type === 'half') {
       metrics = (
         <div
           className="thorHalfGauge__metrics"
           ref={(el) => this.inner = el}
-          style={styles.inner}>
+          style={styles.inner}
+        >
           <div
             className="thorHalfGauge__label"
-            ref="title">{ title }</div>
+            ref="title"
+          >{ title }
+          </div>
           <div
             className="thorHalfGauge__value"
             style={styles.value}
-            ref="label">{ formatter(value) }</div>
+            ref="label"
+          >{ formatter(value) }
+          </div>
+          {additionalLabel}
         </div>
       );
     } else {
@@ -107,14 +141,20 @@ class Gauge extends Component {
         <div
           className="thorCircleGauge__metrics"
           ref={(el) => this.inner = el}
-          style={styles.inner}>
+          style={styles.inner}
+        >
           <div
             className="thorCircleGauge__value"
             style={styles.value}
-            ref="label">{ formatter(value) }</div>
+            ref="label"
+          >{ formatter(value) }
+          </div>
           <div
             className="thorCircleGauge__label"
-            ref="title">{ title }</div>
+            ref="title"
+          >{ title }
+          </div>
+          {additionalLabel}
         </div>
       );
     }
@@ -124,7 +164,8 @@ class Gauge extends Component {
       <div className={className}>
         <div
           ref={(el) => this.resize = el}
-          className={`${className}__resize`}>
+          className={`${className}__resize`}
+        >
           { metrics }
           <GaugeVis {...gaugeProps}/>
         </div>
@@ -149,6 +190,7 @@ Gauge.propTypes = {
   reversed: PropTypes.bool,
   type: PropTypes.oneOf(['half', 'circle']),
   valueColor: PropTypes.string,
+  additionalLabel: PropTypes.string
 };
 
 export default Gauge;

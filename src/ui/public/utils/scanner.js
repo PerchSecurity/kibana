@@ -1,13 +1,45 @@
-import _ from 'lodash';
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 
-export const Scanner = function (client, { index, type } = {}) {
+import _ from 'lodash';
+import chrome from '../chrome';
+
+export const Scanner = function ($http, { index, type } = {}) {
   if (!index) throw new Error('Expected index');
   if (!type) throw new Error('Expected type');
-  if (!client) throw new Error('Expected client');
+  if (!$http) throw new Error('Expected $http');
 
-  this.client = client;
+  this.$http = $http;
   this.index = index;
   this.type = type;
+};
+
+Scanner.prototype.start = function (searchBody) {
+  const { addBasePath } = chrome;
+  const scrollStartPath = addBasePath('/api/kibana/legacy_scroll_start');
+  return this.$http.post(scrollStartPath, searchBody);
+};
+
+Scanner.prototype.continue = function (scrollId) {
+  const { addBasePath } = chrome;
+  const scrollContinuePath = addBasePath('/api/kibana/legacy_scroll_continue');
+  return this.$http.post(scrollContinuePath, { scrollId });
 };
 
 Scanner.prototype.scanAndMap = function (searchString, options, mapFn) {
@@ -67,7 +99,7 @@ Scanner.prototype.scanAndMap = function (searchString, options, mapFn) {
       scrollId = response._scroll_id || scrollId;
 
       let hits = response.hits.hits
-      .slice(0, allResults.total - allResults.hits.length);
+        .slice(0, allResults.total - allResults.hits.length);
 
       hits = hits.map(hit => {
         if (hit._type === 'doc') {
@@ -92,19 +124,19 @@ Scanner.prototype.scanAndMap = function (searchString, options, mapFn) {
       if (collectedAllResults) {
         resolve(allResults);
       } else {
-        this.client.scroll({
-          scrollId,
-          scroll: '1m'
-        }, getMoreUntilDone);
+        this.continue(scrollId)
+          .then(response => getMoreUntilDone(null, response.data))
+          .catch(error => getMoreUntilDone(error));
       }
     };
 
-    this.client.search({
+    const searchBody = {
       index: this.index,
       size: opts.pageSize,
       body: { query: { bool } },
-      scroll: '1m',
-      sort: '_doc',
-    }, getMoreUntilDone);
+    };
+    this.start(searchBody)
+      .then(response => getMoreUntilDone(null, response.data))
+      .catch(error => getMoreUntilDone(error));
   });
 };

@@ -1,93 +1,129 @@
-import React, { Component, PropTypes } from 'react';
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import PropTypes from 'prop-types';
+import React from 'react';
 import AggSelect from './agg_select';
 import FieldSelect from './field_select';
 import AggRow from './agg_row';
 import createChangeHandler from '../lib/create_change_handler';
 import createSelectHandler from '../lib/create_select_handler';
 import createTextHandler from '../lib/create_text_handler';
+import { htmlIdGenerator } from '@elastic/eui';
 
-class FilterRatioAgg extends Component {
+export const FilterRatioAgg = props => {
+  const {
+    series,
+    fields,
+    panel
+  } = props;
 
-  render() {
-    const {
-      series,
-      fields,
-      panel
-    } = this.props;
+  const handleChange = createChangeHandler(props.onChange, props.model);
+  const handleSelectChange = createSelectHandler(handleChange);
+  const handleTextChange = createTextHandler(handleChange);
+  const indexPattern = series.override_index_pattern && series.series_index_pattern || panel.index_pattern;
 
-    const handleChange = createChangeHandler(this.props.onChange, this.props.model);
-    const handleSelectChange = createSelectHandler(handleChange);
-    const handleTextChange = createTextHandler(handleChange);
-    const indexPattern = series.override_index_pattern && series.series_index_pattern || panel.index_pattern;
+  const defaults = {
+    numerator: '*',
+    denominator: '*',
+    metric_agg: 'count'
+  };
 
-    const defaults = {
-      numerator: '*',
-      denominator: '*',
-      metric_agg: 'count'
-    };
+  const model = { ...defaults, ...props.model };
+  const htmlId = htmlIdGenerator();
 
-    const model = { ...defaults, ...this.props.model };
+  const restrictMode = model.metric_agg === 'cardinality' ? 'none' : 'numeric';
 
-    return (
-      <AggRow
-        disableDelete={this.props.disableDelete}
-        model={this.props.model}
-        onAdd={this.props.onAdd}
-        onDelete={this.props.onDelete}
-        siblings={this.props.siblings}>
-        <div style={{ flex: '1 0 auto' }}>
-          <div style={{ flex: '1 0 auto', display: 'flex' }}>
-            <div className="vis_editor__row_item">
-              <div className="vis_editor__label">Aggregation</div>
-              <AggSelect
-                siblings={this.props.siblings}
-                value={model.type}
-                onChange={handleSelectChange('type')}/>
-            </div>
-      <div className="vis_editor__row_item">
-        <div className="vis_editor__label">Numerator</div>
-        <input
-          className="vis_editor__input-grows-100"
-          onChange={handleTextChange('numerator')}
-          value={model.numerator}
-          type="text"/>
-      </div>
-      <div className="vis_editor__row_item">
-        <div className="vis_editor__label">Denominator</div>
-        <input
-          className="vis_editor__input-grows-100"
-          onChange={handleTextChange('denominator')}
-          value={model.denominator}
-          type="text"/>
-      </div>
-    </div>
-      <div style={{ flex: '1 0 auto', display: 'flex', marginTop: '10px' }}>
-        <div className="vis_editor__row_item">
-          <div className="vis_editor__label">Metric Aggregation</div>
-          <AggSelect
-            siblings={this.props.siblings}
-            panelType="metrics"
-            value={model.metric_agg}
-            onChange={handleSelectChange('metric_agg')}/>
+  return (
+    <AggRow
+      disableDelete={props.disableDelete}
+      model={props.model}
+      onAdd={props.onAdd}
+      onDelete={props.onDelete}
+      siblings={props.siblings}
+    >
+      <div style={{ flex: '1 0 auto' }}>
+        <div style={{ flex: '1 0 auto', display: 'flex' }}>
+          <div className="vis_editor__row_item">
+            <div className="vis_editor__label">Aggregation</div>
+            <AggSelect
+              panelType={props.panel.type}
+              siblings={props.siblings}
+              value={model.type}
+              onChange={handleSelectChange('type')}
+            />
+          </div>
+          <div className="vis_editor__row_item">
+            <label className="vis_editor__label" htmlFor={htmlId('numerator')}>
+              Numerator
+            </label>
+            <input
+              id={htmlId('numerator')}
+              className="vis_editor__input-grows-100"
+              onChange={handleTextChange('numerator')}
+              value={model.numerator}
+              type="text"
+            />
+          </div>
+          <div className="vis_editor__row_item">
+            <label className="vis_editor__label" htmlFor={htmlId('denominator')}>
+              Denominator
+            </label>
+            <input
+              id={htmlId('denominator')}
+              className="vis_editor__input-grows-100"
+              onChange={handleTextChange('denominator')}
+              value={model.denominator}
+              type="text"
+            />
+          </div>
         </div>
-      { model.metric_agg !== 'count' ? (
-        <div className="vis_editor__row_item">
-        <div className="vis_editor__label">Field</div>
-        <FieldSelect
-          fields={fields}
-          type={model.metric_agg}
-          restrict="numeric"
-          indexPattern={indexPattern}
-          value={model.field}
-          onChange={handleSelectChange('field')}/>
-      </div>) : null }
-    </div>
+        <div style={{ flex: '1 0 auto', display: 'flex', marginTop: '10px' }}>
+          <div className="vis_editor__row_item">
+            <div className="vis_editor__label">Metric Aggregation</div>
+            <AggSelect
+              siblings={props.siblings}
+              panelType="metrics"
+              value={model.metric_agg}
+              onChange={handleSelectChange('metric_agg')}
+            />
+          </div>
+          { model.metric_agg !== 'count' ? (
+            <div className="vis_editor__row_item">
+              <label className="vis_editor__label" htmlFor={htmlId('aggField')}>
+                Field
+              </label>
+              <FieldSelect
+                id={htmlId('aggField')}
+                fields={fields}
+                type={model.metric_agg}
+                restrict={restrictMode}
+                indexPattern={indexPattern}
+                value={model.field}
+                onChange={handleSelectChange('field')}
+              />
+            </div>) : null }
+        </div>
       </div>
-      </AggRow>
-    );
-  }
-
-}
+    </AggRow>
+  );
+};
 
 FilterRatioAgg.propTypes = {
   disableDelete: PropTypes.bool,
@@ -100,5 +136,3 @@ FilterRatioAgg.propTypes = {
   series: PropTypes.object,
   siblings: PropTypes.array,
 };
-
-export default FilterRatioAgg;

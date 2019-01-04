@@ -1,46 +1,47 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import Wreck from 'wreck';
 import { get } from 'lodash';
 
+const MINUTE = 60 * 1000;
+const HOUR = 60 * MINUTE;
+
 export class KibanaServerUiSettings {
-  constructor(log, es, kibanaVersion) {
-    this.es = es;
-    this.log = log;
-    this.kibanaVersion = kibanaVersion;
+  constructor(url, log, defaults) {
+    this._log = log;
+    this._defaults = defaults;
+    this._wreck = Wreck.defaults({
+      headers: { 'kbn-xsrf': 'ftr/services/uiSettings' },
+      baseUrl: url,
+      json: true,
+      redirects: 3,
+    });
   }
 
-  async _docParams() {
-    const { kibanaVersion } = this;
-    return {
-      index: '.kibana',
-      type: 'config',
-      id: await kibanaVersion.get()
-    };
-  }
-
-  async existInEs() {
-    const { es } = this;
-    return await es.exists(await this._docParams());
-  }
-
-  async _read() {
-    const { log, es } = this;
-    try {
-      const doc = await es.get(await this._docParams());
-      log.verbose('Fetched kibana config doc', doc);
-      return doc;
-    } catch (err) {
-      log.debug('Failed to fetch kibana config doc', err.message);
-      return;
-    }
-  }
-
-  /*
-  ** Gets defaultIndex from the config doc.
-  */
+  /**
+   * Gets defaultIndex from the config doc.
+   */
   async getDefaultIndex() {
-    const { log } = this;
-    const doc = await this._read();
-    const defaultIndex = get(doc, ['_source', 'defaultIndex']);
-    log.verbose('uiSettings.defaultIndex: %j', defaultIndex);
+    const { payload } = await this._wreck.get('/api/kibana/settings');
+    const defaultIndex = get(payload, 'settings.defaultIndex.userValue');
+    this._log.verbose('uiSettings.defaultIndex: %j', defaultIndex);
     return defaultIndex;
   }
 
@@ -54,34 +55,44 @@ export class KibanaServerUiSettings {
    */
   async disableToastAutohide() {
     await this.update({
-      'notifications:lifetime:banner': 360000,
-      'notifications:lifetime:error': 360000,
-      'notifications:lifetime:warning': 360000,
-      'notifications:lifetime:info': 360000,
+      'notifications:lifetime:banner': HOUR,
+      'notifications:lifetime:error': HOUR,
+      'notifications:lifetime:warning': HOUR,
+      'notifications:lifetime:info': HOUR,
     });
   }
 
   async replace(doc) {
-    const { log, es } = this;
-    log.debug('updating kibana config doc: %j', doc);
-    await es.index({
-      ...(await this._docParams()),
-      refresh: 'wait_for',
-      body: doc,
+    const { payload } = await this._wreck.get('/api/kibana/settings');
+
+    for (const key of Object.keys(payload.settings)) {
+      if (!payload.settings[key].isOverridden) {
+        await this._wreck.delete(`/api/kibana/settings/${key}`);
+      }
+    }
+
+    this._log.debug('replacing kibana config doc: %j', doc);
+
+    await this._wreck.post('/api/kibana/settings', {
+      payload: {
+        changes: {
+          ...this._defaults,
+          ...doc,
+        }
+      }
     });
   }
 
   /**
-  * Add fields to the config doc (like setting timezone and defaultIndex)
-  * @return {Promise} A promise that is resolved when elasticsearch has a response
-  */
-  async update(doc) {
-    const { log, es } = this;
-    log.debug('updating kibana config doc: %j', doc);
-    await es.update({
-      ...(await this._docParams()),
-      refresh: 'wait_for',
-      body: { doc, upsert: doc },
+   * Add fields to the config doc (like setting timezone and defaultIndex)
+   * @return {Promise} A promise that is resolved when elasticsearch has a response
+   */
+  async update(updates) {
+    this._log.debug('applying update to kibana config: %j', updates);
+    await this._wreck.post('/api/kibana/settings', {
+      payload: {
+        changes: updates
+      }
     });
   }
 }

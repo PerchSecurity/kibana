@@ -1,74 +1,147 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import expect from 'expect.js';
+
 export function DiscoverPageProvider({ getService, getPageObjects }) {
   const config = getService('config');
   const log = getService('log');
   const retry = getService('retry');
   const testSubjects = getService('testSubjects');
+  const find = getService('find');
+  const flyout = getService('flyout');
   const PageObjects = getPageObjects(['header', 'common']);
+  const remote = getService('remote');
 
   const getRemote = () => (
     getService('remote')
-    .setFindTimeout(config.get('timeouts.find'))
+      .setFindTimeout(config.get('timeouts.find'))
   );
 
   class DiscoverPage {
     getQueryField() {
       return getRemote()
-      .findByCssSelector('input[ng-model=\'state.query\']');
+        .findByCssSelector('input[ng-model=\'state.query\']');
     }
 
     getQuerySearchButton() {
       return getRemote()
-      .findByCssSelector('button[aria-label=\'Search\']');
-    }
-
-    getTimespanText() {
-      return testSubjects.find('globalTimepickerRange')
-      .getVisibleText();
+        .findByCssSelector('button[aria-label=\'Search\']');
     }
 
     getChartTimespan() {
       return getRemote()
-      .findByCssSelector('center.small > span:nth-child(1)')
-      .getVisibleText();
+        .findByCssSelector('.small > span:nth-child(1)')
+        .getVisibleText();
     }
 
-    saveSearch(searchName) {
-      return this.clickSaveSearchButton()
-      .then(() => {
-        log.debug('--saveSearch button clicked');
-        return getRemote().findDisplayedById('SaveSearch')
-        .pressKeys(searchName);
-      })
-      .then(() => {
-        log.debug('--find save button');
-        return testSubjects.click('discoverSaveSearchButton');
+    async saveSearch(searchName) {
+      log.debug('saveSearch');
+      await this.clickSaveSearchButton();
+      await testSubjects.setValue('savedObjectTitle', searchName);
+      await testSubjects.click('confirmSaveSavedObjectButton');
+      await PageObjects.header.waitUntilLoadingHasFinished();
+      // LeeDr - this additional checking for the saved search name was an attempt
+      // to cause this method to wait for the reloading of the page to complete so
+      // that the next action wouldn't have to retry.  But it doesn't really solve
+      // that issue.  But it does typically take about 3 retries to
+      // complete with the expected searchName.
+      await retry.try(async () => {
+        const name = await this.getCurrentQueryName();
+        expect(name).to.be(searchName);
       });
     }
 
-    loadSavedSearch(searchName) {
-      return this.clickLoadSavedSearchButton()
-      .then(() => {
-        getRemote().findByPartialLinkText(searchName).click();
-      })
-      .then(() => {
-        return PageObjects.header.waitUntilLoadingHasFinished();
+    async getColumnHeaders() {
+      const headerElements = await testSubjects.findAll('docTableHeaderField');
+      return await Promise.all(headerElements.map(el => el.getVisibleText()));
+    }
+
+    async openLoadSavedSearchPanel() {
+      const isOpen = await testSubjects.exists('loadSearchForm');
+      if (isOpen) {
+        return;
+      }
+
+      // We need this try loop here because previous actions in Discover like
+      // saving a search cause reloading of the page and the "Open" menu item goes stale.
+      await retry.try(async () => {
+        await this.clickLoadSavedSearchButton();
+        await PageObjects.header.waitUntilLoadingHasFinished();
+        const isOpen = await testSubjects.exists('loadSearchForm');
+        expect(isOpen).to.be(true);
       });
     }
 
-    clickNewSearchButton() {
-      return testSubjects.click('discoverNewButton');
+    async closeLoadSaveSearchPanel() {
+      const isOpen = await testSubjects.exists('loadSearchForm');
+      if (!isOpen) {
+        return;
+      }
+
+      await flyout.close('loadSearchForm');
     }
 
-    clickSaveSearchButton() {
-      return testSubjects.click('discoverSaveButton');
+    async hasSavedSearch(searchName) {
+      const searchLink = await find.byPartialLinkText(searchName);
+      return searchLink.isDisplayed();
     }
 
-    clickLoadSavedSearchButton() {
-      return testSubjects.click('discoverOpenButton');
+    async loadSavedSearch(searchName) {
+      await this.openLoadSavedSearchPanel();
+      const searchLink = await find.byPartialLinkText(searchName);
+      await searchLink.click();
+      await PageObjects.header.waitUntilLoadingHasFinished();
     }
 
-    getCurrentQueryName() {
-      return testSubjects.find('discoverCurrentQuery')
+    async clickNewSearchButton() {
+      await testSubjects.click('discoverNewButton');
+    }
+
+    async clickSaveSearchButton() {
+      await testSubjects.click('discoverSaveButton');
+    }
+
+    async clickLoadSavedSearchButton() {
+      await testSubjects.click('discoverOpenButton');
+    }
+
+    async clickHistogramBar(i) {
+      const bars = await find.allByCssSelector(`.series.histogram rect`);
+      await bars[i].click();
+    }
+
+    async brushHistogram(from, to) {
+      const bars = await find.allByCssSelector('.series.histogram rect');
+      await remote.moveMouseTo(bars[from], 0, -5);
+      await remote.pressMouseButton();
+      await remote.moveMouseTo(bars[to], 0, -5);
+      await remote.releaseMouseButton();
+    }
+
+    async getCurrentQueryName() {
+      return await testSubjects.getVisibleText('discoverCurrentQuery');
+    }
+
+    async getBarChartXTicks() {
+      return getRemote()
+        .findAllByCssSelector('.x.axis.CategoryAxis-1 > .tick > text')
         .getVisibleText();
     }
 
@@ -77,192 +150,156 @@ export function DiscoverPageProvider({ getService, getPageObjects }) {
       let yAxisHeight;
 
       return PageObjects.header.waitUntilLoadingHasFinished()
-      .then(() => {
-        return getRemote()
-          .findByCssSelector('div.y-axis-div-wrapper > div > svg > g > g:last-of-type');
-      })
-      .then(function setYAxisLabel(y) {
-        return y
-          .getVisibleText()
-          .then(function (yLabel) {
-            yAxisLabel = yLabel.replace(',', '');
-            log.debug('yAxisLabel = ' + yAxisLabel);
-            return yLabel;
-          });
-      })
+        .then(() => {
+          return getRemote()
+            .findByCssSelector('div.y-axis-div-wrapper > div > svg > g > g:last-of-type');
+        })
+        .then(function setYAxisLabel(y) {
+          return y
+            .getVisibleText()
+            .then(function (yLabel) {
+              yAxisLabel = yLabel.replace(',', '');
+              log.debug('yAxisLabel = ' + yAxisLabel);
+              return yLabel;
+            });
+        })
       // 2). find and save the y-axis pixel size (the chart height)
-      .then(function getRect() {
-        return getRemote()
-          .findByCssSelector('rect.background')
-          .then(function getRectHeight(chartAreaObj) {
-            return chartAreaObj
-              .getAttribute('height')
-              .then(function (theHeight) {
-                yAxisHeight = theHeight; // - 5; // MAGIC NUMBER - clipPath extends a bit above the top of the y-axis and below x-axis
-                log.debug('theHeight = ' + theHeight);
-                return theHeight;
-              });
-          });
-      })
-      // 3). get the chart-wrapper elements
-      .then(function () {
-        return getRemote()
-          // #kibana-body > div.content > div > div > div > div.vis-editor-canvas > visualize > div.visualize-chart > div > div.vis-col-wrapper > div.chart-wrapper > div > svg > g > g.series.\30 > rect:nth-child(1)
-          .findAllByCssSelector('svg > g > g.series > rect') // rect
-          .then(function (chartTypes) {
-            function getChartType(chart) {
-              return chart
+        .then(function getRect() {
+          return getRemote()
+            .findByCssSelector('rect.background')
+            .then(function getRectHeight(chartAreaObj) {
+              return chartAreaObj
                 .getAttribute('height')
-                .then(function (barHeight) {
-                  return Math.round(barHeight / yAxisHeight * yAxisLabel);
+                .then(function (theHeight) {
+                  yAxisHeight = theHeight; // - 5; // MAGIC NUMBER - clipPath extends a bit above the top of the y-axis and below x-axis
+                  log.debug('theHeight = ' + theHeight);
+                  return theHeight;
                 });
-            }
-            const getChartTypesPromises = chartTypes.map(getChartType);
-            return Promise.all(getChartTypesPromises);
-          })
-          .then(function (bars) {
-            return bars;
-          });
-      });
+            });
+        })
+      // 3). get the chart-wrapper elements
+        .then(function () {
+          return getRemote()
+          // #kibana-body > div.content > div > div > div > div.visEditor__canvas > visualize > div.visualize-chart > div > div.vis-col-wrapper > div.chart-wrapper > div > svg > g > g.series.\30 > rect:nth-child(1)
+            .findAllByCssSelector('svg > g > g.series > rect') // rect
+            .then(function (chartTypes) {
+              function getChartType(chart) {
+                return chart
+                  .getAttribute('height')
+                  .then(function (barHeight) {
+                    return Math.round(barHeight / yAxisHeight * yAxisLabel);
+                  });
+              }
+              const getChartTypesPromises = chartTypes.map(getChartType);
+              return Promise.all(getChartTypesPromises);
+            })
+            .then(function (bars) {
+              return bars;
+            });
+        });
     }
 
-    getChartInterval() {
-      return testSubjects.find('discoverIntervalSelect')
-      .getProperty('value')
-      .then(selectedValue => {
-        return getRemote()
-        .findByCssSelector('option[value="' + selectedValue + '"]')
-        .getVisibleText();
-      });
+    async getChartInterval() {
+      const selectedValue = await testSubjects.getProperty('discoverIntervalSelect', 'value');
+      const selectedOption = await find.byCssSelector('option[value="' + selectedValue + '"]');
+      return selectedOption.getVisibleText();
     }
 
-    setChartInterval(interval) {
-      return getRemote()
-      .setFindTimeout(5000)
-      .findByCssSelector('option[label="' + interval + '"]')
-      .click()
-      .then(() => {
-        return PageObjects.header.waitUntilLoadingHasFinished();
-      });
+    async setChartInterval(interval) {
+      const optionElement = await find.byCssSelector('option[label="' + interval + '"]', 5000);
+      await optionElement.click();
+      return await PageObjects.header.waitUntilLoadingHasFinished();
     }
 
-    getHitCount() {
-      return PageObjects.header.waitUntilLoadingHasFinished()
-      .then(() => {
-        return testSubjects.find('discoverQueryHits')
-        .getVisibleText();
-      });
+    async getHitCount() {
+      await PageObjects.header.waitUntilLoadingHasFinished();
+      return await testSubjects.getVisibleText('discoverQueryHits');
     }
 
     query(queryString) {
       return getRemote()
-      .findByCssSelector('input[aria-label="Search input"]')
-      .clearValue()
-      .type(queryString)
-      .then(() => {
-        return getRemote()
-        .findByCssSelector('button[aria-label="Search"]')
-        .click();
-      })
-      .then(() => {
-        return PageObjects.header.waitUntilLoadingHasFinished();
-      });
+        .findByCssSelector('input[aria-label="Search input"]')
+        .clearValue()
+        .type(queryString)
+        .then(() => {
+          return getRemote()
+            .findByCssSelector('button[aria-label="Search"]')
+            .click();
+        })
+        .then(() => {
+          return PageObjects.header.waitUntilLoadingHasFinished();
+        });
     }
 
     getDocHeader() {
       return getRemote()
-      .findByCssSelector('thead.ng-isolate-scope > tr:nth-child(1)')
-      .getVisibleText();
+        .findByCssSelector('thead > tr:nth-child(1)')
+        .getVisibleText();
     }
 
     getDocTableIndex(index) {
       return getRemote()
-      .findByCssSelector('tr.discover-table-row:nth-child(' + (index) + ')')
-      .getVisibleText();
+        .findByCssSelector('tr.discover-table-row:nth-child(' + (index) + ')')
+        .getVisibleText();
     }
 
     clickDocSortDown() {
       return getRemote()
-      .findByCssSelector('.fa-sort-down')
-      .click();
+        .findByCssSelector('.fa-sort-down')
+        .click();
     }
 
     clickDocSortUp() {
       return getRemote()
-      .findByCssSelector('.fa-sort-up')
-      .click();
+        .findByCssSelector('.fa-sort-up')
+        .click();
     }
 
     getMarks() {
       return getRemote()
-      .findAllByCssSelector('mark')
-      .getVisibleText();
+        .findAllByCssSelector('mark')
+        .getVisibleText();
     }
 
-    clickShare() {
-      return testSubjects.click('discoverShareButton');
-    }
-
-    clickShortenUrl() {
-      return testSubjects.click('sharedSnapshotShortUrlButton');
-    }
-
-    clickCopyToClipboard() {
-      return testSubjects.click('sharedSnapshotCopyButton');
-    }
-
-    getShareCaption() {
-      return testSubjects.find('shareUiTitle')
-      .getVisibleText();
-    }
-
-    getSharedUrl() {
-      return testSubjects.find('sharedSnapshotUrl')
-      .getProperty('value');
-    }
-
-    toggleSidebarCollapse() {
-      return testSubjects.find('collapseSideBarButton').click();
+    async toggleSidebarCollapse() {
+      return await testSubjects.click('collapseSideBarButton');
     }
 
     getAllFieldNames() {
       return getRemote()
-      .findAllByClassName('sidebar-item')
-      .then((items) => {
-        return Promise.all(items.map((item) => item.getVisibleText()));
-      });
+        .findAllByClassName('sidebar-item')
+        .then((items) => {
+          return Promise.all(items.map((item) => item.getVisibleText()));
+        });
     }
 
     getSidebarWidth() {
       return getRemote()
-      .findByClassName('sidebar-list')
-      .getProperty('clientWidth');
+        .findByClassName('sidebar-list')
+        .getProperty('clientWidth');
     }
 
-    hasNoResults() {
-      return testSubjects.find('discoverNoResults')
-      .then(() => true)
-      .catch(() => false);
+    async hasNoResults() {
+      return await testSubjects.exists('discoverNoResults');
     }
 
-    getNoResultsTimepicker() {
-      return testSubjects.find('discoverNoResultsTimefilter');
+    async getNoResultsTimepicker() {
+      return await testSubjects.find('discoverNoResultsTimefilter');
     }
 
     hasNoResultsTimepicker() {
       return this
-      .getNoResultsTimepicker()
-      .then(() => true)
-      .catch(() => false);
+        .getNoResultsTimepicker()
+        .then(() => true)
+        .catch(() => false);
     }
 
-    clickFieldListItem(field) {
-      return testSubjects.click(`field-${field}`);
+    async clickFieldListItem(field) {
+      return await testSubjects.click(`field-${field}`);
     }
 
     async clickFieldListItemAdd(field) {
-      const listEntry = await testSubjects.find(`field-${field}`);
-      await getRemote().moveMouseTo(listEntry);
+      await testSubjects.moveMouseTo(`field-${field}`);
       await testSubjects.click(`fieldToggle-${field}`);
     }
 
@@ -272,20 +309,28 @@ export function DiscoverPageProvider({ getService, getPageObjects }) {
       });
     }
 
-    clickFieldListPlusFilter(field, value) {
+    async clickFieldListPlusFilter(field, value) {
       // this method requires the field details to be open from clickFieldListItem()
       // testSubjects.find doesn't handle spaces in the data-test-subj value
-      return getRemote()
-      .findByCssSelector(`[data-test-subj="plus-${field}-${value}"]`)
-      .click();
+      await getRemote()
+        .findByCssSelector(`[data-test-subj="plus-${field}-${value}"]`)
+        .click();
+      await PageObjects.header.waitUntilLoadingHasFinished();
     }
 
-    clickFieldListMinusFilter(field, value) {
+    async clickFieldListMinusFilter(field, value) {
       // this method requires the field details to be open from clickFieldListItem()
       // testSubjects.find doesn't handle spaces in the data-test-subj value
-      return getRemote()
-      .findByCssSelector('[data-test-subj="minus-' + field + '-' + value + '"]')
-      .click();
+      await getRemote()
+        .findByCssSelector('[data-test-subj="minus-' + field + '-' + value + '"]')
+        .click();
+      await PageObjects.header.waitUntilLoadingHasFinished();
+    }
+
+    async selectIndexPattern(indexPattern) {
+      await getRemote().findByClassName('index-pattern-selection').click();
+      await getRemote().findByClassName('ui-select-search').type(indexPattern + '\n');
+      await PageObjects.header.waitUntilLoadingHasFinished();
     }
 
     async removeAllFilters() {
@@ -294,6 +339,28 @@ export function DiscoverPageProvider({ getService, getPageObjects }) {
       await PageObjects.header.waitUntilLoadingHasFinished();
       await PageObjects.common.waitUntilUrlIncludes('filters:!()');
     }
+
+    async removeHeaderColumn(name) {
+      await testSubjects.moveMouseTo(`docTableHeader-${name}`);
+      await testSubjects.click(`docTableRemoveHeader-${name}`);
+    }
+
+    async openSidebarFieldFilter() {
+      const fieldFilterFormExists = await testSubjects.exists('discoverFieldFilter');
+      if (!fieldFilterFormExists) {
+        await testSubjects.click('toggleFieldFilterButton');
+        await testSubjects.existOrFail('discoverFieldFilter');
+      }
+    }
+
+    async closeSidebarFieldFilter() {
+      const fieldFilterFormExists = await testSubjects.exists('discoverFieldFilter');
+      if (fieldFilterFormExists) {
+        await testSubjects.click('toggleFieldFilterButton');
+        await testSubjects.missingOrFail('discoverFieldFilter');
+      }
+    }
+
   }
 
   return new DiscoverPage();

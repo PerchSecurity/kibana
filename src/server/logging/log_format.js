@@ -1,8 +1,27 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import Stream from 'stream';
-import moment from 'moment';
+import moment from 'moment-timezone';
 import { get, _ } from 'lodash';
 import numeral from '@elastic/numeral';
-import ansicolors from 'ansicolors';
+import chalk from 'chalk';
 import stringify from 'json-stringify-safe';
 import querystring from 'querystring';
 import applyFiltersToKeys from './apply_filters_to_keys';
@@ -19,14 +38,14 @@ function serializeError(err = {}) {
 }
 
 const levelColor = function (code) {
-  if (code < 299) return ansicolors.green(code);
-  if (code < 399) return ansicolors.yellow(code);
-  if (code < 499) return ansicolors.magenta(code);
-  return ansicolors.red(code);
+  if (code < 299) return chalk.green(code);
+  if (code < 399) return chalk.yellow(code);
+  if (code < 499) return chalk.magentaBright(code);
+  return chalk.red(code);
 };
 
 
-module.exports = class TransformObjStream extends Stream.Transform {
+export default class TransformObjStream extends Stream.Transform {
   constructor(config) {
     super({
       readableObjectMode: false,
@@ -46,10 +65,19 @@ module.exports = class TransformObjStream extends Stream.Transform {
     next();
   }
 
+  extractAndFormatTimestamp(data, format) {
+    const { timezone } = this.config;
+    const date = moment(data['@timestamp']);
+    if (timezone) {
+      date.tz(timezone);
+    }
+    return date.format(format);
+  }
+
   readEvent(event) {
     const data = {
       type: event.event,
-      '@timestamp': moment.utc(event.timestamp).format(),
+      '@timestamp': event.timestamp,
       tags: [].concat(event.tags || []),
       pid: event.pid
     };
@@ -91,8 +119,8 @@ module.exports = class TransformObjStream extends Stream.Transform {
       data.message += ' ';
       data.message += levelColor(data.res.statusCode);
       data.message += ' ';
-      data.message += ansicolors.brightBlack(data.res.responseTime + 'ms');
-      data.message += ansicolors.brightBlack(' - ' + numeral(contentLength).format('0.0b'));
+      data.message += chalk.gray(data.res.responseTime + 'ms');
+      data.message += chalk.gray(' - ' + numeral(contentLength).format('0.0b'));
     }
     else if (data.type === 'ops') {
       _.defaults(data, _.pick(event, [
@@ -101,19 +129,19 @@ module.exports = class TransformObjStream extends Stream.Transform {
         'proc',
         'load'
       ]));
-      data.message  = ansicolors.brightBlack('memory: ');
+      data.message  = chalk.gray('memory: ');
       data.message += numeral(get(data, 'proc.mem.heapUsed')).format('0.0b');
       data.message += ' ';
-      data.message += ansicolors.brightBlack('uptime: ');
+      data.message += chalk.gray('uptime: ');
       data.message += numeral(get(data, 'proc.uptime')).format('00:00:00');
       data.message += ' ';
-      data.message += ansicolors.brightBlack('load: [');
+      data.message += chalk.gray('load: [');
       data.message += get(data, 'os.load', []).map(function (val) {
         return numeral(val).format('0.00');
       }).join(' ');
-      data.message += ansicolors.brightBlack(']');
+      data.message += chalk.gray(']');
       data.message += ' ';
-      data.message += ansicolors.brightBlack('delay: ');
+      data.message += chalk.gray('delay: ');
       data.message += numeral(get(data, 'proc.delay')).format('0.000');
     }
     else if (data.type === 'error') {
@@ -140,4 +168,4 @@ module.exports = class TransformObjStream extends Stream.Transform {
     }
     return data;
   }
-};
+}

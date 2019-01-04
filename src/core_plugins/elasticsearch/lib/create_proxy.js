@@ -1,11 +1,36 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import createAgent from './create_agent';
 import mapUri from './map_uri';
 import { assign } from 'lodash';
 
-function createProxy(server, method, path, config) {
+export function createPath(prefix, path) {
+  path = path[0] === '/' ? path : `/${path}`;
+  prefix = prefix[0] === '/' ? prefix : `/${prefix}`;
+
+  return `${prefix}${path}`;
+}
+
+export function createProxy(server, method, path, config) {
   const proxies = new Map([
     ['/elasticsearch', server.plugins.elasticsearch.getCluster('data')],
-    ['/es_admin', server.plugins.elasticsearch.getCluster('admin')]
   ]);
 
   const responseHandler = function (err, upstreamResponse, request, reply) {
@@ -25,7 +50,7 @@ function createProxy(server, method, path, config) {
   for (const [proxyPrefix, cluster] of proxies) {
     const options = {
       method,
-      path: createProxy.createPath(proxyPrefix, path),
+      path: createPath(proxyPrefix, path),
       config: {
         timeout: {
           socket: cluster.getRequestTimeout()
@@ -50,12 +75,3 @@ function createProxy(server, method, path, config) {
     server.route(options);
   }
 }
-
-createProxy.createPath = function createPath(prefix, path) {
-  path = path[0] === '/' ? path : `/${path}`;
-  prefix = prefix[0] === '/' ? prefix : `/${prefix}`;
-
-  return `${prefix}${path}`;
-};
-
-module.exports = createProxy;

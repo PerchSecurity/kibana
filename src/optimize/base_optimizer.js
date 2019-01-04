@@ -1,27 +1,46 @@
-import { resolve } from 'path';
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import { writeFile } from 'fs';
 
-import webpack from 'webpack';
 import Boom from 'boom';
-import DirectoryNameAsMain from '@elastic/webpack-directory-name-as-main';
 import ExtractTextPlugin from 'extract-text-webpack-plugin';
-import CommonsChunkPlugin from 'webpack/lib/optimize/CommonsChunkPlugin';
-import DefinePlugin from 'webpack/lib/DefinePlugin';
-import UglifyJsPlugin from 'webpack/lib/optimize/UglifyJsPlugin';
-import { defaults, transform } from 'lodash';
+import UglifyJsPlugin from 'uglifyjs-webpack-plugin';
+import webpack from 'webpack';
+import Stats from 'webpack/lib/Stats';
+import webpackMerge from 'webpack-merge';
 
-import { fromRoot } from '../utils';
-import babelOptions from './babel/options';
-import pkg from '../../package.json';
-import { setLoaderQueryParam, makeLoaderString } from './loaders';
+import { defaults } from 'lodash';
 
-const babelExclude = [/[\/\\](webpackShims|node_modules|bower_components)[\/\\]/];
+import { IS_KIBANA_DISTRIBUTABLE, fromRoot } from '../utils';
 
-class BaseOptimizer {
+import { PUBLIC_PATH_PLACEHOLDER } from './public_path_placeholder';
+
+const POSTCSS_CONFIG_PATH = require.resolve('./postcss.config');
+const BABEL_PRESET_PATH = require.resolve('@kbn/babel-preset/webpack_preset');
+const BABEL_EXCLUDE_RE = [
+  /[\/\\](webpackShims|node_modules|bower_components)[\/\\]/,
+];
+
+export default class BaseOptimizer {
   constructor(opts) {
-    this.env = opts.env;
-    this.urlBasePath = opts.urlBasePath;
-    this.bundles = opts.bundles;
+    this.uiBundles = opts.uiBundles;
     this.profile = opts.profile || false;
 
     switch (opts.sourceMaps) {
@@ -55,7 +74,7 @@ class BaseOptimizer {
     this.compiler.plugin('done', stats => {
       if (!this.profile) return;
 
-      const path = resolve(this.env.workingDir, 'stats.json');
+      const path = this.uiBundles.resolvePath('stats.json');
       const content = JSON.stringify(stats.toJson());
       writeFile(path, content, function (err) {
         if (err) throw err;
@@ -66,167 +85,352 @@ class BaseOptimizer {
   }
 
   getConfig() {
-    const loaderWithSourceMaps = (loader) =>
-      setLoaderQueryParam(loader, 'sourceMap', !!this.sourceMaps);
-
-    const makeStyleLoader = preprocessor => {
-      let loaders = [
-        loaderWithSourceMaps('css-loader?autoprefixer=false'),
-        {
-          name: 'postcss-loader',
-          query: {
-            config: require.resolve('./postcss.config')
-          }
+    function getStyleLoaders(preProcessors = [], postProcessors = []) {
+      return ExtractTextPlugin.extract({
+        fallback: {
+          loader: 'style-loader'
         },
-      ];
+        use: [
+          ...postProcessors,
+          {
+            loader: 'css-loader',
+            options: {
+              // importLoaders needs to know the number of loaders that follow this one,
+              // so we add 1 (for the postcss-loader) to the length of the preProcessors
+              // array that we merge into this array
+              importLoaders: 1 + preProcessors.length,
+            },
+          },
+          {
+            loader: 'postcss-loader',
+            options: {
+              config: {
+                path: POSTCSS_CONFIG_PATH,
+              },
+            },
+          },
+          ...preProcessors,
+        ],
+      });
+    }
 
-      if (preprocessor) {
-        loaders = [
-          ...loaders,
-          loaderWithSourceMaps(preprocessor)
-        ];
+    const nodeModulesPath = fromRoot('node_modules');
+
+    /**
+     * Adds a cache loader if we're running in dev mode. The reason we're not adding
+     * the cache-loader when running in production mode is that it creates cache
+     * files in optimize/.cache that are not necessary for distributable versions
+     * of Kibana and just make compressing and extracting it more difficult.
+     */
+    const maybeAddCacheLoader = (cacheName, loaders) => {
+      if (IS_KIBANA_DISTRIBUTABLE) {
+        return loaders;
       }
 
-      return ExtractTextPlugin.extract(makeLoaderString(loaders));
+      return [
+        {
+          loader: 'cache-loader',
+          options: {
+            cacheDirectory: this.uiBundles.getCacheDirectory(cacheName)
+          }
+        },
+        ...loaders
+      ];
     };
 
-    const config = {
+    /**
+     * Creates the selection rules for a loader that will only pass for
+     * source files that are eligible for automatic transpilation.
+     */
+    const createSourceFileResourceSelector = (test) => {
+      return [
+        {
+          test,
+          exclude: BABEL_EXCLUDE_RE.concat(this.uiBundles.getWebpackNoParseRules()),
+        },
+        {
+          test,
+          include: /[\/\\]node_modules[\/\\]x-pack[\/\\]/,
+          exclude: /[\/\\]node_modules[\/\\]x-pack[\/\\](.+?[\/\\])*node_modules[\/\\]/,
+        }
+      ];
+    };
+
+    const commonConfig = {
       node: { fs: 'empty' },
       context: fromRoot('.'),
-      entry: this.bundles.toWebpackEntries(),
+      entry: this.uiBundles.toWebpackEntries(),
 
       devtool: this.sourceMaps,
       profile: this.profile || false,
 
       output: {
-        path: this.env.workingDir,
+        path: this.uiBundles.getWorkingDir(),
         filename: '[name].bundle.js',
         sourceMapFilename: '[file].map',
-        publicPath: `${this.urlBasePath || ''}/bundles/`,
+        publicPath: PUBLIC_PATH_PLACEHOLDER,
         devtoolModuleFilenameTemplate: '[absolute-resource-path]'
       },
 
-      recordsPath: resolve(this.env.workingDir, 'webpack.records'),
-
       plugins: [
-        new webpack.ResolverPlugin([
-          new DirectoryNameAsMain()
-        ]),
-        new webpack.NoErrorsPlugin(),
         new ExtractTextPlugin('[name].style.css', {
           allChunks: true
         }),
-        new CommonsChunkPlugin({
+
+        new webpack.optimize.CommonsChunkPlugin({
           name: 'commons',
-          filename: 'commons.bundle.js'
+          filename: 'commons.bundle.js',
+          minChunks: 2,
         }),
-        ...this.pluginsForEnv(this.env.context.env)
+
+        new webpack.optimize.CommonsChunkPlugin({
+          name: 'vendors',
+          filename: 'vendors.bundle.js',
+          // only combine node_modules from Kibana
+          minChunks: module => module.context && module.context.indexOf(nodeModulesPath) !== -1
+        }),
+
+        new webpack.NoEmitOnErrorsPlugin(),
+
+        // replace imports for `uiExports/*` modules with a synthetic module
+        // created by create_ui_exports_module.js
+        new webpack.NormalModuleReplacementPlugin(/^uiExports\//, (resource) => {
+          // the map of uiExport types to module ids
+          const extensions = this.uiBundles.getAppExtensions();
+
+          // everything following the first / in the request is
+          // treated as a type of appExtension
+          const type = resource.request.slice(resource.request.indexOf('/') + 1);
+
+          resource.request = [
+            // the "val-loader" is used to execute create_ui_exports_module
+            // and use its return value as the source for the module in the
+            // bundle. This allows us to bypass writing to the file system
+            require.resolve('val-loader'),
+            '!',
+            require.resolve('./create_ui_exports_module'),
+            '?',
+            // this JSON is parsed by create_ui_exports_module and determines
+            // what require() calls it will execute within the bundle
+            JSON.stringify({ type, modules: extensions[type] || [] })
+          ].join('');
+        }),
+
+        ...this.uiBundles.getWebpackPluginProviders()
+          .map(provider => provider(webpack)),
       ],
 
       module: {
-        loaders: [
-          { test: /\.less$/, loader: makeStyleLoader('less-loader') },
-          { test: /\.css$/, loader: makeStyleLoader() },
-          { test: /\.jade$/, loader: 'jade-loader' },
-          { test: /\.json$/, loader: 'json-loader' },
-          { test: /\.(html|tmpl)$/, loader: 'raw-loader' },
-          { test: /\.png$/, loader: 'url-loader' },
-          { test: /\.(woff|woff2|ttf|eot|svg|ico)(\?|$)/, loader: 'file-loader' },
-          { test: /[\/\\]src[\/\\](core_plugins|ui)[\/\\].+\.js$/, loader: loaderWithSourceMaps('rjs-repack-loader') },
+        rules: [
           {
-            test: /\.jsx?$/,
-            exclude: babelExclude.concat(this.env.noParse),
-            loader: 'babel-loader',
-            query: babelOptions.webpack
+            test: /\.less$/,
+            use: getStyleLoaders(
+              ['less-loader'],
+              maybeAddCacheLoader('less', [])
+            ),
           },
+          {
+            test: /\.css$/,
+            use: getStyleLoaders(),
+          },
+          {
+            test: /\.(html|tmpl)$/,
+            loader: 'raw-loader'
+          },
+          {
+            test: /\.png$/,
+            loader: 'url-loader'
+          },
+          {
+            test: /\.(woff|woff2|ttf|eot|svg|ico)(\?|$)/,
+            loader: 'file-loader'
+          },
+          {
+            resource: createSourceFileResourceSelector(/\.js$/),
+            use: maybeAddCacheLoader('babel', [
+              {
+                loader: 'babel-loader',
+                options: {
+                  babelrc: false,
+                  presets: [
+                    BABEL_PRESET_PATH,
+                  ],
+                },
+              }
+            ]),
+          },
+          ...this.uiBundles.getPostLoaders().map(loader => ({
+            enforce: 'post',
+            ...loader
+          })),
         ],
-        postLoaders: this.env.postLoaders || [],
-        noParse: this.env.noParse,
+        noParse: this.uiBundles.getWebpackNoParseRules(),
       },
 
       resolve: {
-        extensions: ['.js', '.json', '.jsx', '.less', ''],
-        postfixes: [''],
-        modulesDirectories: ['webpackShims', 'node_modules'],
-        fallback: [fromRoot('webpackShims'), fromRoot('node_modules')],
-        loaderPostfixes: ['-loader', ''],
-        root: fromRoot('.'),
-        alias: this.env.aliases,
+        extensions: ['.js', '.json'],
+        mainFields: ['browser', 'browserify', 'main'],
+        modules: [
+          'webpackShims',
+          fromRoot('webpackShims'),
+
+          'node_modules',
+          fromRoot('node_modules'),
+        ],
+        alias: this.uiBundles.getAliases(),
         unsafeCache: this.unsafeCache,
       },
-
-      resolveLoader: {
-        alias: transform(pkg.dependencies, function (aliases, version, name) {
-          if (name.endsWith('-loader')) {
-            aliases[name] = require.resolve(name);
-          }
-        }, {})
-      }
     };
 
-    // In the test env we need to add react-addons (and a few other bits) for the
-    // enzyme tests to work.
+    // when running from the distributable define an environment variable we can use
+    // to exclude chunks of code, modules, etc.
+    const isDistributableConfig = {
+      plugins: [
+        new webpack.DefinePlugin({
+          'process.env': {
+            'IS_KIBANA_DISTRIBUTABLE': `"true"`
+          }
+        }),
+      ]
+    };
+
+    // when running from source transpile TypeScript automatically
+    const getSourceConfig = () => {
+      // dev/typescript is deleted from the distributable, so only require it if we actually need the source config
+      const { Project } = require('../dev/typescript');
+      const browserProject = new Project(fromRoot('tsconfig.browser.json'));
+
+      return {
+        module: {
+          rules: [
+            {
+              resource: createSourceFileResourceSelector(/\.tsx?$/),
+              use: maybeAddCacheLoader('typescript', [
+                {
+                  loader: 'ts-loader',
+                  options: {
+                    transpileOnly: true,
+                    experimentalWatchApi: true,
+                    onlyCompileBundledFiles: true,
+                    configFile: fromRoot('tsconfig.json'),
+                    compilerOptions: {
+                      ...browserProject.config.compilerOptions,
+                      sourceMap: Boolean(this.sourceMaps),
+                    }
+                  }
+                }
+              ]),
+            }
+          ]
+        },
+
+        stats: {
+          // when typescript doesn't do a full type check, as we have the ts-loader
+          // configured here, it does not have enough information to determine
+          // whether an imported name is a type or not, so when the name is then
+          // exported, typescript has no choice but to emit the export. Fortunately,
+          // the extraneous export should not be harmful, so we just suppress these warnings
+          // https://github.com/TypeStrong/ts-loader#transpileonly-boolean-defaultfalse
+          warningsFilter: /export .* was not found in/
+        },
+
+        resolve: {
+          extensions: ['.ts', '.tsx'],
+        },
+      };
+    };
+
+    // We need to add react-addons (and a few other bits) for enzyme to work.
     // https://github.com/airbnb/enzyme/blob/master/docs/guides/webpack.md
-    if (this.env.context.env === 'development') {
-      config.externals = {
+    const supportEnzymeConfig = {
+      externals: {
+        'mocha': 'mocha',
         'react/lib/ExecutionEnvironment': true,
         'react/addons': true,
         'react/lib/ReactContext': true,
-      };
-    }
+      }
+    };
 
-    return config;
-  }
+    const watchingConfig = {
+      plugins: [
+        new webpack.WatchIgnorePlugin([
+          // When our bundle entry files are fresh they cause webpack
+          // to think they might have changed since the watcher was
+          // initialized, which triggers a second compilation on startup.
+          // Since we can't reliably update these files anyway, we can
+          // just ignore them in the watcher and prevent the extra compilation
+          /bundles[\/\\].+\.entry\.js/,
+        ])
+      ]
+    };
 
-  pluginsForEnv(env) {
-    if (env !== 'production') {
-      return [];
-    }
+    // in production we set the process.env.NODE_ENV and uglify our bundles
+    const productionConfig = {
+      plugins: [
+        new webpack.DefinePlugin({
+          'process.env': {
+            'NODE_ENV': '"production"'
+          }
+        }),
+        new UglifyJsPlugin({
+          parallel: true,
+          sourceMap: false,
+          uglifyOptions: {
+            compress: {
+              // the following is required for dead-code the removal
+              // check in React DevTools
 
-    return [
-      new DefinePlugin({
-        'process.env': {
-          'NODE_ENV': '"production"'
-        }
-      }),
-      new UglifyJsPlugin({
-        compress: {
-          warnings: false
-        },
-        sourceMap: false,
-        mangle: false
-      }),
-    ];
+              unused: true,
+              dead_code: true,
+              conditionals: true,
+              evaluate: true,
+
+              comparisons: false,
+              sequences: false,
+              properties: false,
+              drop_debugger: false,
+              booleans: false,
+              loops: false,
+              toplevel: false,
+              top_retain: false,
+              hoist_funs: false,
+              if_return: false,
+              join_vars: false,
+              collapse_vars: false,
+              reduce_vars: false,
+              warnings: false,
+              negate_iife: false,
+              keep_fnames: true,
+              keep_infinity: true,
+              side_effects: false
+            },
+            mangle: false
+          }
+        }),
+      ]
+    };
+
+    return webpackMerge(
+      commonConfig,
+      IS_KIBANA_DISTRIBUTABLE
+        ? isDistributableConfig
+        : getSourceConfig(),
+      this.uiBundles.isDevMode()
+        ? webpackMerge(watchingConfig, supportEnzymeConfig)
+        : productionConfig
+    );
   }
 
   failedStatsToError(stats) {
-    const statFormatOpts = {
-      hash: false,  // add the hash of the compilation
-      version: false,  // add webpack version information
-      timings: false,  // add timing information
-      assets: false,  // add assets information
-      chunks: false,  // add chunk information
-      chunkModules: false,  // add built modules information to chunk information
-      modules: false,  // add built modules information
-      cached: false,  // add also information about cached (not built) modules
-      reasons: false,  // add information about the reasons why modules are included
-      source: false,  // add the source code of modules
-      errorDetails: false,  // add details to errors (like resolving log)
-      chunkOrigins: false,  // add the origins of chunks and chunk merging info
-      modulesSort: false,  // (string) sort the modules by that field
-      chunksSort: false,  // (string) sort the chunks by that field
-      assetsSort: false,  // (string) sort the assets by that field
-      children: false,
-    };
-
-    const details = stats.toString(defaults({ colors: true }, statFormatOpts));
+    const details = stats.toString(defaults(
+      { colors: true },
+      Stats.presetToOptions('minimal')
+    ));
 
     return Boom.create(
       500,
       `Optimizations failure.\n${details.split('\n').join('\n    ')}\n`,
-      stats.toJson(statFormatOpts)
+      stats.toJson(Stats.presetToOptions('detailed'))
     );
   }
 }
-
-module.exports = BaseOptimizer;

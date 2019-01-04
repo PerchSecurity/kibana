@@ -1,145 +1,183 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import _ from 'lodash';
-import html from 'ui/doc_table/doc_table.html';
-import { getSort } from 'ui/doc_table/lib/get_sort';
-import 'ui/doc_table/doc_table.less';
-import 'ui/directives/truncated';
-import 'ui/directives/infinite_scroll';
-import 'ui/doc_table/components/table_header';
-import 'ui/doc_table/components/table_row';
-import { uiModules } from 'ui/modules';
+import html from './doc_table.html';
+import { getSort } from './lib/get_sort';
+import './doc_table.less';
+import '../directives/truncated';
+import '../directives/infinite_scroll';
+import './components/table_header';
+import './components/table_row';
+import { dispatchRenderComplete } from '../render_complete';
+import { uiModules } from '../modules';
+import { getRequestInspectorStats, getResponseInspectorStats } from '../courier/utils/courier_inspector_utils';
 
 import { getLimitedSearchResultsMessage } from './doc_table_strings';
 
 uiModules.get('kibana')
-.directive('docTable', function (config, Notifier, getAppState, pagerFactory, $filter) {
-  return {
-    restrict: 'E',
-    template: html,
-    scope: {
-      sorting: '=',
-      columns: '=',
-      hits: '=?', // You really want either hits & indexPattern, OR searchSource
-      indexPattern: '=?',
-      searchSource: '=?',
-      infiniteScroll: '=?',
-      filter: '=?',
-      filters: '=?',
-      onAddColumn: '=?',
-      onChangeSortOrder: '=?',
-      onMoveColumn: '=?',
-      onRemoveColumn: '=?',
-    },
-    link: function ($scope) {
-      const notify = new Notifier();
-      $scope.limit = 50;
-      $scope.persist = {
-        sorting: $scope.sorting,
-        columns: $scope.columns
-      };
+  .directive('docTable', function (config, Notifier, getAppState, pagerFactory, $filter, courier) {
+    return {
+      restrict: 'E',
+      template: html,
+      scope: {
+        sorting: '=',
+        columns: '=',
+        hits: '=?', // You really want either hits & indexPattern, OR searchSource
+        indexPattern: '=?',
+        searchSource: '=?',
+        infiniteScroll: '=?',
+        filter: '=?',
+        filters: '=?',
+        minimumVisibleRows: '=?',
+        onAddColumn: '=?',
+        onChangeSortOrder: '=?',
+        onMoveColumn: '=?',
+        onRemoveColumn: '=?',
+        inspectorAdapters: '=?',
+      },
+      link: function ($scope, $el) {
+        const notify = new Notifier();
 
-      const prereq = (function () {
-        const fns = [];
+        $scope.$watch('minimumVisibleRows', (minimumVisibleRows) => {
+          $scope.limit = Math.max(minimumVisibleRows || 50, $scope.limit || 50);
+        });
 
-        return function register(fn) {
-          fns.push(fn);
-
-          return function () {
-            fn.apply(this, arguments);
-
-            if (fns.length) {
-              _.pull(fns, fn);
-              if (!fns.length) {
-                $scope.$root.$broadcast('ready:vis');
-              }
-            }
-          };
+        $scope.persist = {
+          sorting: $scope.sorting,
+          columns: $scope.columns
         };
-      }());
-      const limitTo = $filter('limitTo');
-      const calculateItemsOnPage = () => {
-        $scope.pager.setTotalItems($scope.hits.length);
-        $scope.pageOfItems = limitTo($scope.hits, $scope.pager.pageSize, $scope.pager.startIndex);
-      };
 
-      $scope.limitedResultsWarning = getLimitedSearchResultsMessage(config.get('discover:sampleSize'));
+        const limitTo = $filter('limitTo');
+        const calculateItemsOnPage = () => {
+          $scope.pager.setTotalItems($scope.hits.length);
+          $scope.pageOfItems = limitTo($scope.hits, $scope.pager.pageSize, $scope.pager.startIndex);
+        };
 
-      $scope.addRows = function () {
-        $scope.limit += 50;
-      };
+        $scope.limitedResultsWarning = getLimitedSearchResultsMessage(config.get('discover:sampleSize'));
 
-      // This exists to fix the problem of an empty initial column list not playing nice with watchCollection.
-      $scope.$watch('columns', function (columns) {
-        if (columns.length !== 0) return;
+        $scope.addRows = function () {
+          $scope.limit += 50;
+        };
 
-        const $state = getAppState();
-        $scope.columns.push('_source');
-        if ($state) $state.replace();
-      });
+        // This exists to fix the problem of an empty initial column list not playing nice with watchCollection.
+        $scope.$watch('columns', function (columns) {
+          if (columns.length !== 0) return;
 
-      $scope.$watchCollection('columns', function (columns, oldColumns) {
-        if (oldColumns.length === 1 && oldColumns[0] === '_source' && $scope.columns.length > 1) {
-          _.pull($scope.columns, '_source');
-        }
+          const $state = getAppState();
+          $scope.columns.push('_source');
+          if ($state) $state.replace();
+        });
 
-        if ($scope.columns.length === 0) $scope.columns.push('_source');
-      });
+        $scope.$watchCollection('columns', function (columns, oldColumns) {
+          if (oldColumns.length === 1 && oldColumns[0] === '_source' && $scope.columns.length > 1) {
+            _.pull($scope.columns, '_source');
+          }
 
+          if ($scope.columns.length === 0) $scope.columns.push('_source');
+        });
 
-      $scope.$watch('searchSource', prereq(function () {
-        if (!$scope.searchSource) return;
+        $scope.$watch('searchSource', function () {
+          if (!$scope.searchSource) return;
 
-        $scope.indexPattern = $scope.searchSource.get('index');
+          $scope.indexPattern = $scope.searchSource.getField('index');
 
-        $scope.searchSource.size(config.get('discover:sampleSize'));
-        $scope.searchSource.sort(getSort($scope.sorting, $scope.indexPattern));
+          $scope.searchSource.setField('size', config.get('discover:sampleSize'));
+          $scope.searchSource.setField('sort', getSort($scope.sorting, $scope.indexPattern));
 
-        // Set the watcher after initialization
-        $scope.$watchCollection('sorting', function (newSort, oldSort) {
+          // Set the watcher after initialization
+          $scope.$watchCollection('sorting', function (newSort, oldSort) {
           // Don't react if sort values didn't really change
-          if (newSort === oldSort) return;
-          $scope.searchSource.sort(getSort(newSort, $scope.indexPattern));
-          $scope.searchSource.fetchQueued();
-        });
+            if (newSort === oldSort) return;
+            $scope.searchSource.setField('sort', getSort(newSort, $scope.indexPattern));
+            $scope.searchSource.fetchQueued();
+          });
 
-        $scope.$on('$destroy', function () {
-          if ($scope.searchSource) $scope.searchSource.destroy();
-        });
+          $scope.$on('$destroy', function () {
+            if ($scope.searchSource) $scope.searchSource.destroy();
+          });
 
-        // TODO: we need to have some way to clean up result requests
-        $scope.searchSource.onResults().then(function onResults(resp) {
+          function onResults(resp) {
           // Reset infinite scroll limit
-          $scope.limit = 50;
+            $scope.limit = 50;
 
-          // Abort if something changed
-          if ($scope.searchSource !== $scope.searchSource) return;
+            // Abort if something changed
+            if ($scope.searchSource !== $scope.searchSource) return;
 
-          $scope.hits = resp.hits.hits;
-          // We limit the number of returned results, but we want to show the actual number of hits, not
-          // just how many we retrieved.
-          $scope.totalHitCount = resp.hits.total;
-          $scope.pager = pagerFactory.create($scope.hits.length, 50, 1);
+            $scope.hits = resp.hits.hits;
+            if ($scope.hits.length === 0) {
+              dispatchRenderComplete($el[0]);
+            }
+            // We limit the number of returned results, but we want to show the actual number of hits, not
+            // just how many we retrieved.
+            $scope.totalHitCount = resp.hits.total;
+            $scope.pager = pagerFactory.create($scope.hits.length, 50, 1);
+            calculateItemsOnPage();
+
+            return $scope.searchSource.onResults().then(onResults);
+          }
+
+          function startSearching() {
+            let inspectorRequest = undefined;
+            if (_.has($scope, 'inspectorAdapters.requests')) {
+              $scope.inspectorAdapters.requests.reset();
+              inspectorRequest = $scope.inspectorAdapters.requests.start('Data', {
+                description: `This request queries Elasticsearch to fetch the data for the search.`,
+              });
+              inspectorRequest.stats(getRequestInspectorStats($scope.searchSource));
+              $scope.searchSource.getSearchRequestBody().then(body => {
+                inspectorRequest.json(body);
+              });
+            }
+            $scope.searchSource.onResults()
+              .then(resp => {
+                if (inspectorRequest) {
+                  inspectorRequest
+                    .stats(getResponseInspectorStats($scope.searchSource, resp))
+                    .ok({ json: resp });
+                }
+                return resp;
+              })
+              .then(onResults)
+              .catch(error => {
+                notify.error(error);
+                startSearching();
+              });
+          }
+          startSearching();
+          courier.fetch();
+        });
+
+        $scope.pageOfItems = [];
+        $scope.onPageNext = () => {
+          $scope.pager.nextPage();
           calculateItemsOnPage();
+        };
 
-          return $scope.searchSource.onResults().then(onResults);
-        }).catch(notify.fatal);
+        $scope.onPagePrevious = () => {
+          $scope.pager.previousPage();
+          calculateItemsOnPage();
+        };
 
-        $scope.searchSource.onError(notify.error).catch(notify.fatal);
-      }));
-
-      $scope.pageOfItems = [];
-      $scope.onPageNext = () => {
-        $scope.pager.nextPage();
-        calculateItemsOnPage();
-      };
-
-      $scope.onPagePrevious = () => {
-        $scope.pager.previousPage();
-        calculateItemsOnPage();
-      };
-
-      $scope.shouldShowLimitedResultsWarning = () => (
-        !$scope.pager.hasNextPage && $scope.pager.totalItems < $scope.totalHitCount
-      );
-    }
-  };
-});
+        $scope.shouldShowLimitedResultsWarning = () => (
+          !$scope.pager.hasNextPage && $scope.pager.totalItems < $scope.totalHitCount
+        );
+      }
+    };
+  });

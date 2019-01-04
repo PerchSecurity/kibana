@@ -1,3 +1,22 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import { resolve } from 'path';
 
 import { delay } from 'bluebird';
@@ -6,11 +25,11 @@ import sinon from 'sinon';
 import cheerio from 'cheerio';
 import { noop } from 'lodash';
 
-import KbnServer from '../../server/kbn_server';
+import { createRoot, getKbnServer, request } from '../../test_utils/kbn_server';
 
 const getInjectedVarsFromResponse = (resp) => {
-  const $ = cheerio.load(resp.payload);
-  const data = $('kbn-initial-state').attr('data');
+  const $ = cheerio.load(resp.text);
+  const data = $('kbn-injected-metadata').attr('data');
   return JSON.parse(data).vars;
 };
 
@@ -18,42 +37,54 @@ const injectReplacer = (kbnServer, replacer) => {
   // normally the replacer would be defined in a plugin's uiExports,
   // but that requires stubbing out an entire plugin directory for
   // each test, so we fake it and jam the replacer into uiExports
-  kbnServer.uiExports.injectedVarsReplacers.push(replacer);
+  const { injectedVarsReplacers = [] } = kbnServer.uiExports;
+  kbnServer.uiExports.injectedVarsReplacers = [
+    ...injectedVarsReplacers,
+    replacer
+  ];
 };
 
 describe('UiExports', function () {
-  describe('#replaceInjectedVars', function () {
+  let root;
+  let kbnServer;
+  before(async () => {
     this.slow(2000);
-    this.timeout(10000);
+    this.timeout(30000);
 
-    let kbnServer;
-    beforeEach(async () => {
-      kbnServer = new KbnServer({
-        server: { port: 0 }, // pick a random open port
-        logging: { silent: true }, // no logs
-        optimize: { enabled: false },
-        uiSettings: { enabled: false },
-        plugins: {
-          paths: [resolve(__dirname, './fixtures/test_app')] // inject an app so we can hit /app/{id}
-        },
-      });
-
-      await kbnServer.ready();
-      kbnServer.status.get('ui settings').state = 'green';
-      kbnServer.server.decorate('request', 'getUiSettingsService', () => {
-        return { getDefaults: noop, getUserProvided: noop };
-      });
+    root = root = createRoot({
+      // inject an app so we can hit /app/{id}
+      plugins: { paths: [resolve(__dirname, './fixtures/test_app')] },
     });
 
-    afterEach(async () => {
-      await kbnServer.close();
-      kbnServer = null;
-    });
+    await root.start();
 
+    kbnServer = getKbnServer(root);
+
+    // TODO: hopefully we can add better support for something
+    // like this in the new platform
+    kbnServer.server._requestor._decorations.getUiSettingsService = {
+      apply: undefined,
+      method: () => ({ getDefaults: noop, getUserProvided: noop })
+    };
+  });
+
+  after(async () => await root.shutdown());
+
+  let originalInjectedVarsReplacers;
+  beforeEach(() => {
+    originalInjectedVarsReplacers = kbnServer.uiExports.injectedVarsReplacers;
+  });
+
+  afterEach(() => {
+    kbnServer.uiExports.injectedVarsReplacers = originalInjectedVarsReplacers;
+  });
+
+  describe('#replaceInjectedVars', function () {
     it('allows sync replacing of injected vars', async () => {
       injectReplacer(kbnServer, () => ({ a: 1 }));
 
-      const resp = await kbnServer.inject('/app/test_app');
+      const resp = await request.get(root, '/app/test_app')
+        .expect(200);
       const injectedVars = getInjectedVarsFromResponse(resp);
 
       expect(injectedVars).to.eql({ a: 1 });
@@ -68,7 +99,8 @@ describe('UiExports', function () {
         };
       });
 
-      const resp = await kbnServer.inject('/app/test_app');
+      const resp = await request.get(root, '/app/test_app')
+        .expect(200);
       const injectedVars = getInjectedVarsFromResponse(resp);
 
       expect(injectedVars).to.eql({
@@ -81,7 +113,8 @@ describe('UiExports', function () {
       injectReplacer(kbnServer, () => ({ foo: 'bar' }));
       injectReplacer(kbnServer, stub);
 
-      await kbnServer.inject('/app/test_app');
+      await await request.get(root, '/app/test_app')
+        .expect(200);
 
       sinon.assert.calledOnce(stub);
       expect(stub.firstCall.args[0]).to.eql({ foo: 'bar' }); // originalInjectedVars
@@ -96,28 +129,30 @@ describe('UiExports', function () {
       injectReplacer(kbnServer, orig => ({ name: orig.name + 'a' }));
       injectReplacer(kbnServer, orig => ({ name: orig.name + 'm' }));
 
-      const resp = await kbnServer.inject('/app/test_app');
+      const resp = await request.get(root, '/app/test_app')
+        .expect(200);
       const injectedVars = getInjectedVarsFromResponse(resp);
 
       expect(injectedVars).to.eql({ name: 'sam' });
     });
 
-    it('propogates errors thrown in replacers', async () => {
+    it('propagates errors thrown in replacers', async () => {
       injectReplacer(kbnServer, async () => {
         await delay(100);
         throw new Error('replacer failed');
       });
 
-      const resp = await kbnServer.inject('/app/test_app');
-      expect(resp).to.have.property('statusCode', 500);
+      await request.get(root, '/app/test_app')
+        .expect(500);
     });
 
     it('starts off with the injected vars for the app merged with the default injected vars', async () => {
       const stub = sinon.stub();
       injectReplacer(kbnServer, stub);
-      kbnServer.uiExports.defaultInjectedVars.from_defaults = true;
 
-      await kbnServer.inject('/app/test_app');
+      await request.get(root, '/app/test_app')
+        .expect(200);
+
       sinon.assert.calledOnce(stub);
       expect(stub.firstCall.args[0]).to.eql({ from_defaults: true, from_test_app: true });
     });

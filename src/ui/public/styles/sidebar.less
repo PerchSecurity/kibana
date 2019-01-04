@@ -4,23 +4,27 @@
 .sidebar-container {
   padding-left: 0px !important;
   padding-right: 0px !important;
-  background-color: @sidebar-bg;
+  background-color: @globalColorLightestGray;
   border-right-color: @sidebar-border;
   border-bottom-color: @sidebar-border;
 
   .sidebar-well {
-    background-color: @sidebar-well-bg;
+    background-color: tint(@globalColorBlue, 80%);
   }
 
   .sidebar-list {
-    .navbar-nav.navbar-right {
+    .sidebar-controls {
       border-radius: 4px;
-      overflow:hidden;
       margin-right: -13px;
       margin-top: 2px;
+
       .navbar-btn-link {
         padding-left: 10px;
         padding-right: 10px;
+      }
+
+      .sidebar-controls-error {
+        cursor: default;
       }
     }
 
@@ -32,10 +36,24 @@
     .sidebar-item {
       border-top-color: @sidebar-border;
       font-size: @sidebar-item-font-size;
+      border-top: solid 1px transparent;
+      border-bottom: solid 1px transparent;
+      line-height: normal;
 
-      .active {
-        background-color: @sidebar-active-bg !important;
+      label {
+        margin-bottom: 5px;
+        font-weight: 700;
+        display: block;
+      }
+
+      label[for] {
+        cursor: pointer;
+      }
+
+      &.active {
+        background-color: darken(@globalColorLightestGray, 10%) !important;
         color: @sidebar-active-color;
+        border-color: @globalColorLightGray;
 
         &:hover,
         &:hover .text-muted {
@@ -79,6 +97,7 @@
 
       .sidebar-list-header-label {
         font-size: 14px;
+        line-height: 1.5;
       }
     }
 
@@ -87,7 +106,8 @@
     padding: 5px 10px;
     display: flex;
     justify-content: space-between;
-    background-color: @kibanaGray4;
+    background-color: shade(@globalColorBlue, 60%);
+    color: @globalColorWhite;
     line-height: 28px;
 
     .index-pattern-label {
@@ -99,6 +119,7 @@
 
     > * {
       flex: 0 1 auto;
+      align-self: center;
     }
     &.active {
       background-color: @sidebar-active-bg;

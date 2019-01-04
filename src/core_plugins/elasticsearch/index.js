@@ -1,6 +1,24 @@
-import { compact, get, has, set, trim, trimRight } from 'lodash';
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import { compact, get, has, set } from 'lodash';
 import { unset } from '../../utils';
-import { methodNotAllowed } from 'boom';
 
 import healthCheck from './lib/health_check';
 import { createDataCluster } from './lib/create_data_cluster';
@@ -9,12 +27,12 @@ import { clientLogger } from './lib/client_logger';
 import { createClusters } from './lib/create_clusters';
 import filterHeaders from './lib/filter_headers';
 
-//import createProxy, { createPath } from './lib/create_proxy';
+//import createProxy from './lib/create_proxy';
 import { createProxy, createPath, proxyHandler } from './lib/perch_create_proxy';
 
 const DEFAULT_REQUEST_HEADERS = [ 'authorization' ];
 
-module.exports = function (kibana) {
+export default function (kibana) {
   return new kibana.Plugin({
     require: ['kibana'],
     config(Joi) {
@@ -25,7 +43,8 @@ module.exports = function (kibana) {
         certificateAuthorities: array().single().items(string()),
         certificate: string(),
         key: string(),
-        keyPassphrase: string()
+        keyPassphrase: string(),
+        alwaysPresentCertificate: boolean().default(false),
       }).default();
 
       return object({
@@ -34,7 +53,7 @@ module.exports = function (kibana) {
         preserveHost: boolean().default(true),
         username: string(),
         password: string(),
-        shardTimeout: number().default(0),
+        shardTimeout: number().default(30000),
         requestTimeout: number().default(30000),
         requestHeadersWhitelist: array().items().single().default(DEFAULT_REQUEST_HEADERS),
         customHeaders: object().default({}),
@@ -42,24 +61,24 @@ module.exports = function (kibana) {
         startupTimeout: number().default(5000),
         logQueries: boolean().default(false),
         ssl: sslSchema,
-        apiVersion: Joi.string().default('5.x'),
+        apiVersion: Joi.string().default('6.5'),
         healthCheck: object({
           delay: number().default(2500)
         }).default(),
-        tribe: object({
-          url: string().uri({ scheme: ['http', 'https'] }),
-          preserveHost: boolean().default(true),
-          username: string(),
-          password: string(),
-          shardTimeout: number().default(0),
-          requestTimeout: number().default(30000),
-          requestHeadersWhitelist: array().items().single().default(DEFAULT_REQUEST_HEADERS),
-          customHeaders: object().default({}),
-          pingTimeout: number().default(ref('requestTimeout')),
-          startupTimeout: number().default(5000),
-          logQueries: boolean().default(false),
+        tribe: Joi.object({
+          url: Joi.string().uri({ scheme: ['http', 'https'] }),
+          preserveHost: Joi.boolean().default(true),
+          username: Joi.string(),
+          password: Joi.string(),
+          shardTimeout: Joi.number().default(0),
+          requestTimeout: Joi.number().default(30000),
+          requestHeadersWhitelist: Joi.array().items().single().default(DEFAULT_REQUEST_HEADERS),
+          customHeaders: Joi.object().default({}),
+          pingTimeout: Joi.number().default(Joi.ref('requestTimeout')),
+          startupTimeout: Joi.number().default(5000),
+          logQueries: Joi.boolean().default(false),
           ssl: sslSchema,
-          apiVersion: Joi.string().default('5.x'),
+          apiVersion: Joi.string().default('master'),
         }).default()
       }).default();
     },
@@ -107,7 +126,6 @@ module.exports = function (kibana) {
     },
 
     init(server) {
-      const kibanaIndex = server.config().get('kibana.index');
       const clusters = createClusters(server);
 
       server.expose('getCluster', clusters.get);
@@ -115,58 +133,20 @@ module.exports = function (kibana) {
 
       server.expose('filterHeaders', filterHeaders);
       server.expose('ElasticsearchClientLogging', clientLogger(server));
+
       server.expose('proxyHandler', proxyHandler);
 
       createDataCluster(server);
       createAdminCluster(server);
 
-      createProxy(server, 'GET', '/{paths*}');
-      createProxy(server, 'POST', '/_mget');
       createProxy(server, 'POST', '/{index}/_search');
-      createProxy(server, 'POST', '/{index}/_field_stats');
       createProxy(server, 'POST', '/_msearch');
-      //createProxy(server, 'POST', '/_search/scroll');
 
-      function noBulkCheck({ path }, reply) {
-        if (/\/_bulk/.test(path)) {
-          return reply({
-            error: 'You can not send _bulk requests to this interface.'
-          }).code(400).takeover();
-        }
-        return reply.continue();
-      }
-
-      function noDirectIndex({ path }, reply) {
-        const requestPath = trimRight(trim(path), '/');
-        const matchPath = createPath('/elasticsearch', kibanaIndex);
-
-        if (requestPath === matchPath) {
-          return reply(methodNotAllowed('You cannot modify the primary kibana index through this interface.'));
-        }
-
-        reply.continue();
-      }
-
-      // These routes are actually used to deal with things such as managing
-      // index patterns and advanced settings, but since hapi treats route
-      // wildcards as zero-or-more, the routes also match the kibana index
-      // itself. The client-side kibana code does not deal with creating nor
-      // destroying the kibana index, so we limit that ability here.
-      createProxy(
-        server,
-        //['PUT', 'POST', 'DELETE'],
-        ['POST', 'DELETE'],
-        `/${kibanaIndex}/{paths*}`,
-        {
-          pre: [ noDirectIndex, noBulkCheck ]
-        }
-      );
       // Set up the health check service and start it.
-      const mappings = kibana.uiExports.mappings.getCombined();
-      const { start, waitUntilReady } = healthCheck(this, server, { mappings });
+      const { start, waitUntilReady } = healthCheck(this, server);
       server.expose('waitUntilReady', waitUntilReady);
       start();
     }
   });
 
-};
+}

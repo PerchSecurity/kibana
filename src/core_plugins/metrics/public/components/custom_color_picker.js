@@ -1,4 +1,24 @@
-import React, { Component, PropTypes } from 'react';
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import PropTypes from 'prop-types';
+import React, { Component } from 'react';
 
 import { ColorWrap as colorWrap, Saturation, Hue, Alpha, Checkboard } from 'react-color/lib/components/common';
 import ChromeFields from 'react-color/lib/components/chrome/ChromeFields';
@@ -56,7 +76,8 @@ export class CustomColorPicker extends Component {
         <CompactColor
           key={c}
           color={c}
-          onClick={handleSwatchChange}/>
+          onClick={handleSwatchChange}
+        />
       );
     });
 
@@ -65,21 +86,21 @@ export class CustomColorPicker extends Component {
         <div className="color_picker__saturation">
           <Saturation
             style={styles.Saturation}
-            { ...this.props }
+            {...this.props}
             pointer={ChromePointerCircle}
             onChange={this.handleChange}
           />
         </div>
         <div className="color_picker__body">
           <div className="color_picker__controls flexbox-fix">
-            <div className={ this.props.disableAlpha ? 'color_picker__color-disable_alpha' : 'color_picker__color' }>
-              <div className={ this.props.disableAlpha ? 'color_picker__swatch-disable_alpha' : 'color_picker__swatch' }>
+            <div className={this.props.disableAlpha ? 'color_picker__color-disable_alpha' : 'color_picker__color'}>
+              <div className={this.props.disableAlpha ? 'color_picker__swatch-disable_alpha' : 'color_picker__swatch'}>
                 <div className="color_picker__active" />
                 <Checkboard />
               </div>
             </div>
             <div className="color_picker__toggles">
-              <div className={ this.props.disableAlpha ? 'color_picker__hue-disable_alpha' : 'color_picker__hue' }>
+              <div className={this.props.disableAlpha ? 'color_picker__hue-disable_alpha' : 'color_picker__hue'}>
                 <Hue
                   style={styles.Hue}
                   {...this.props}
@@ -87,7 +108,7 @@ export class CustomColorPicker extends Component {
                   onChange={this.handleChange}
                 />
               </div>
-              <div className={ this.props.disableAlpha ? 'color_picker__alpha-disable_alpha' : 'color_picker__alpha'}>
+              <div className={this.props.disableAlpha ? 'color_picker__alpha-disable_alpha' : 'color_picker__alpha'}>
                 <Alpha
                   style={styles.Alpha}
                   {...this.props}

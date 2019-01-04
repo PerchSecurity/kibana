@@ -1,14 +1,34 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import _ from 'lodash';
 import { dedupFilters } from './lib/dedup_filters';
 import { uniqFilters } from './lib/uniq_filters';
-import { findByParam } from 'ui/utils/find_by_param';
+import { findByParam } from '../utils/find_by_param';
+import { toastNotifications } from '../notify';
 
-export function FilterBarClickHandlerProvider(Notifier) {
+export function FilterBarClickHandlerProvider() {
+
   return function ($state) {
     return function (event, simulate) {
-      const notify = new Notifier({
-        location: 'Filter bar'
-      });
+      if (!$state) return;
+
       let aggConfigResult;
 
       // Hierarchical and tabular data set their aggConfigResult parameter
@@ -35,17 +55,18 @@ export function FilterBarClickHandlerProvider(Notifier) {
         }
 
         let filters = _(aggBuckets)
-        .map(function (result) {
-          try {
-            return result.createFilter();
-          } catch (e) {
-            if (!simulate) {
-              notify.warning(e.message);
+          .map(function (result) {
+            try {
+              return result.createFilter();
+            } catch (e) {
+              if (!simulate) {
+                toastNotifications.addSuccess(e.message);
+              }
             }
-          }
-        })
-        .filter(Boolean)
-        .value();
+          })
+          .flatten()
+          .filter(Boolean)
+          .value();
 
         if (!filters.length) return;
 
@@ -57,14 +78,12 @@ export function FilterBarClickHandlerProvider(Notifier) {
         }
 
         filters = dedupFilters($state.filters, uniqFilters(filters), { negate: true });
-        // We need to add a bunch of filter deduping here.
+
         if (!simulate) {
           $state.$newFilters = filters;
         }
-
         return filters;
       }
     };
   };
 }
-

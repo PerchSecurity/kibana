@@ -1,7 +1,26 @@
-import angular from 'angular';
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import expect from 'expect.js';
 import ngMock from 'ng_mock';
 import sinon from 'sinon';
+import $ from 'jquery';
 
 describe('ui/modals/confirm_modal_promise', function () {
 
@@ -23,11 +42,8 @@ describe('ui/modals/confirm_modal_promise', function () {
   });
 
   afterEach(function () {
-    const confirmButton = angular.element(document.body).find('[data-test-subj=confirmModalConfirmButton]');
-    if (confirmButton) {
-      $rootScope.$digest();
-      angular.element(confirmButton).click();
-    }
+    $rootScope.$digest();
+    $.findTestSubject('confirmModalConfirmButton').click();
   });
 
   describe('before timeout completes', function () {
@@ -42,7 +58,7 @@ describe('ui/modals/confirm_modal_promise', function () {
   describe('after timeout completes', function () {
     it('confirmation dialogue is loaded to dom with message', function () {
       $rootScope.$digest();
-      const confirmModalElement = angular.element(document.body).find('[data-test-subj=confirmModal]');
+      const confirmModalElement = $.findTestSubject('confirmModal');
       expect(confirmModalElement).to.not.be(undefined);
 
       const htmlString = confirmModalElement[0].innerHTML;
@@ -57,7 +73,7 @@ describe('ui/modals/confirm_modal_promise', function () {
 
         promise.then(confirmCallback, cancelCallback);
         $rootScope.$digest();
-        const confirmButton = angular.element(document.body).find('[data-test-subj=confirmModalConfirmButton]');
+        const confirmButton = $.findTestSubject('confirmModalConfirmButton');
 
         confirmButton.click();
         expect(confirmCallback.called).to.be(true);
@@ -72,7 +88,7 @@ describe('ui/modals/confirm_modal_promise', function () {
         promise.then(confirmCallback, cancelCallback);
 
         $rootScope.$digest();
-        const noButton = angular.element(document.body).find('[data-test-subj=confirmModalCancelButton]');
+        const noButton = $.findTestSubject('confirmModalCancelButton');
         noButton.click();
 
         expect(cancelCallback.called).to.be(true);
@@ -82,12 +98,17 @@ describe('ui/modals/confirm_modal_promise', function () {
 
     describe('error is thrown', function () {
       it('when no confirm button text is used', function () {
-        try {
-          confirmModalPromise(message);
-          expect(false).to.be(true);
-        } catch (error) {
-          expect(error).to.not.be(undefined);
-        }
+        const confirmCallback = sinon.spy();
+        const cancelCallback = sinon.spy();
+        confirmModalPromise(message).then(confirmCallback, cancelCallback);
+
+        $rootScope.$digest();
+        sinon.assert.notCalled(confirmCallback);
+        sinon.assert.calledOnce(cancelCallback);
+        sinon.assert.calledWithExactly(
+          cancelCallback,
+          sinon.match.has('message', sinon.match(/confirmation button text/))
+        );
       });
     });
   });

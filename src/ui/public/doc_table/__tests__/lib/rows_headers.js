@@ -1,3 +1,22 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import angular from 'angular';
 import _ from 'lodash';
 import sinon from 'sinon';
@@ -52,7 +71,7 @@ describe('Doc Table', function () {
 
     it('should create a time column if the timefield is defined', function () {
       const childElems = parentElem.find(elemType);
-      expect(childElems.length).to.be(2);
+      expect(childElems.length).to.be(1);
     });
 
     it('should be able to add and remove columns', function () {
@@ -61,20 +80,20 @@ describe('Doc Table', function () {
       $parentScope.columns = ['bytes'];
       parentElem.scope().$digest();
       childElems = parentElem.find(elemType);
-      expect(childElems.length).to.be(3);
-      expect($(childElems[2]).text()).to.contain('bytes');
+      expect(childElems.length).to.be(2);
+      expect($(childElems[1]).text()).to.contain('bytes');
 
       $parentScope.columns = ['bytes', 'request_body'];
       parentElem.scope().$digest();
       childElems = parentElem.find(elemType);
-      expect(childElems.length).to.be(4);
-      expect($(childElems[3]).text()).to.contain('request_body');
+      expect(childElems.length).to.be(3);
+      expect($(childElems[2]).text()).to.contain('request_body');
 
       $parentScope.columns = ['request_body'];
       parentElem.scope().$digest();
       childElems = parentElem.find(elemType);
-      expect(childElems.length).to.be(3);
-      expect($(childElems[2]).text()).to.contain('request_body');
+      expect(childElems.length).to.be(2);
+      expect($(childElems[1]).text()).to.contain('request_body');
     });
 
     it('should create only the toggle column if there is no timeField', function () {
@@ -82,7 +101,7 @@ describe('Doc Table', function () {
       parentElem.scope().$digest();
 
       const childElems = parentElem.find(elemType);
-      expect(childElems.length).to.be(1);
+      expect(childElems.length).to.be(0);
     });
 
   };
@@ -117,7 +136,23 @@ describe('Doc Table', function () {
     });
 
     describe('adding and removing columns', function () {
-      columnTests('th', $elem);
+      columnTests('[data-test-subj~="docTableHeaderField"]', $elem);
+    });
+
+    describe('sorting button', function () {
+
+      beforeEach(function () {
+        $parentScope.columns = ['bytes', '_source'];
+        $elem.scope().$digest();
+      });
+
+      it('should show for sortable columns', function () {
+        expect($elem.find(`[data-test-subj="docTableHeaderFieldSort_bytes"]`).length).to.be(1);
+      });
+
+      it('should not be shown for unsortable columns', function () {
+        expect($elem.find(`[data-test-subj="docTableHeaderFieldSort__source"]`).length).to.be(0);
+      });
     });
 
     describe('cycleSortOrder function', function () {
@@ -252,7 +287,7 @@ describe('Doc Table', function () {
     });
 
     describe('adding and removing columns', function () {
-      columnTests('td', $elem);
+      columnTests('[data-test-subj~="docTableField"]', $elem);
     });
 
     describe('details row', function () {
@@ -294,7 +329,7 @@ describe('Doc Table', function () {
   describe('kbnTableRow meta', function () {
 
     const $elem = angular.element(
-        '<tr kbn-table-row="row" ' +
+      '<tr kbn-table-row="row" ' +
         'columns="columns" ' +
         'sorting="sorting"' +
         'filtering="filtering"' +
@@ -351,13 +386,13 @@ describe('Doc Table', function () {
       $root.indexPattern = Private(FixturesStubbedLogstashIndexPatternProvider);
 
       $row = $('<tr>')
-      .attr({
-        'kbn-table-row': 'row',
-        'columns': 'columns',
-        'sorting': 'sortin',
-        'filtering': 'filtering',
-        'index-pattern': 'indexPattern',
-      });
+        .attr({
+          'kbn-table-row': 'row',
+          'columns': 'columns',
+          'sorting': 'sorting',
+          'filtering': 'filtering',
+          'index-pattern': 'indexPattern',
+        });
 
       $scope = $root.$new();
       $compile($row)($scope);

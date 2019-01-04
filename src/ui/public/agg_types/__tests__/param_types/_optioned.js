@@ -1,28 +1,36 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import expect from 'expect.js';
-import ngMock from 'ng_mock';
-import { AggTypesParamTypesBaseProvider } from 'ui/agg_types/param_types/base';
-import { AggTypesParamTypesOptionedProvider } from 'ui/agg_types/param_types/optioned';
+import { BaseParamType } from '../../param_types/base';
+import { OptionedParamType } from '../../param_types/optioned';
 
 describe('Optioned', function () {
 
-  let BaseAggParam;
-  let OptionedAggParam;
-
-  beforeEach(ngMock.module('kibana'));
-  // fetch out deps
-  beforeEach(ngMock.inject(function (Private) {
-    BaseAggParam = Private(AggTypesParamTypesBaseProvider);
-    OptionedAggParam = Private(AggTypesParamTypesOptionedProvider);
-  }));
-
   describe('constructor', function () {
-    it('it is an instance of BaseAggParam', function () {
-      const aggParam = new OptionedAggParam({
+    it('it is an instance of BaseParamType', function () {
+      const aggParam = new OptionedParamType({
         name: 'some_param',
         type: 'optioned'
       });
 
-      expect(aggParam).to.be.a(BaseAggParam);
+      expect(aggParam).to.be.a(BaseParamType);
     });
   });
 });

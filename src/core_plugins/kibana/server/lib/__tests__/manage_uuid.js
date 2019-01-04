@@ -1,6 +1,25 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import expect from 'expect.js';
 import sinon from 'sinon';
-import * as kbnTestServer from '../../../../../test_utils/kbn_server.js';
+import { startTestServers } from '../../../../../test_utils/kbn_server';
 import manageUuid from '../manage_uuid';
 
 describe('core_plugins/kibana/server/lib', function () {
@@ -8,25 +27,24 @@ describe('core_plugins/kibana/server/lib', function () {
     const testUuid = 'c4add484-0cba-4e05-86fe-4baa112d9e53';
     let kbnServer;
     let config;
+    let servers;
 
     before(async function () {
-      this.timeout(60000); // sometimes waiting for server takes longer than 10
-
-      kbnServer = kbnTestServer.createServerWithCorePlugins();
-
-      await kbnServer.ready();
+      servers = await startTestServers({
+        adjustTimeout: (t) => {
+          this.timeout(t);
+        },
+      });
+      kbnServer = servers.kbnServer;
     });
 
-    // clear uuid stuff from previous test runs
+    // Clear uuid stuff from previous test runs
     beforeEach(function () {
       kbnServer.server.log = sinon.stub();
-      kbnServer.server.log.reset();
       config = kbnServer.server.config();
     });
 
-    after(async function () {
-      await kbnServer.close();
-    });
+    after(() => servers.stop());
 
     it('ensure config uuid is validated as a guid', async function () {
       config.set('server.uuid', testUuid);

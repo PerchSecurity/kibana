@@ -48,15 +48,15 @@ $http.get(chrome.addBasePath('/api/plugin/things'));
 [float]
 ==== Server side
 
-Append `config.get('server.basePath')` to any absolute URL path.
+Append `request.getBasePath()` to any absolute URL path.
 
 ["source","shell"]
 -----------
 const basePath = server.config().get('server.basePath');
 server.route({
   path: '/redirect',
-  handler(req, reply) {
-    reply.redirect(`${basePath}/otherLocation`);
+  handler(request, reply) {
+    reply.redirect(`${request.getBasePath()}/otherLocation`);
   }
 });
 -----------
@@ -79,9 +79,9 @@ To accomplish this the `serve` task does a few things:
 
 This proxy can sometimes have unintended side effects in development, so when
 needed you can opt out by passing the `--no-base-path` flag to the `serve` task
-or `npm start`.
+or `yarn start`.
 
 ["source","shell"]
 -----------
-npm start -- --no-base-path
+yarn start --no-base-path
 -----------

@@ -1,6 +1,26 @@
-import React, { Component, PropTypes } from 'react';
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import PropTypes from 'prop-types';
+import React, { Component } from 'react';
 import _ from 'lodash';
-import collectionActions from '../lib/collection_actions';
+import * as collectionActions from '../lib/collection_actions';
 import AddDeleteButtons from '../add_delete_buttons';
 import ColorPicker from '../color_picker';
 import uuid from 'uuid';
@@ -39,7 +59,8 @@ class FilterItems extends Component {
             disableTrash={true}
             onChange={handleChange}
             name="color"
-            value={model.color}/>
+            value={model.color}
+          />
         </div>
         <div className="vis_editor__split-filter-item">
           <input
@@ -47,7 +68,8 @@ class FilterItems extends Component {
             className="vis_editor__input-grows-100"
             type="text"
             onChange={this.handleChange(model, 'filter')}
-            value={model.filter}/>
+            value={model.filter}
+          />
         </div>
         <div className="vis_editor__split-filter-item">
           <input
@@ -55,13 +77,15 @@ class FilterItems extends Component {
             className="vis_editor__input-grows-100"
             type="text"
             onChange={this.handleChange(model, 'label')}
-            value={model.label}/>
+            value={model.label}
+          />
         </div>
         <div className="vis_editor__split-filter-control">
           <AddDeleteButtons
             onAdd={handleAdd}
             onDelete={handleDelete}
-            disableDelete={items.length < 2}/>
+            disableDelete={items.length < 2}
+          />
         </div>
       </div>
     );
