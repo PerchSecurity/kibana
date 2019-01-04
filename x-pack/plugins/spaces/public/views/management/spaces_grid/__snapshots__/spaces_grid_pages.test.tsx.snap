@@ -81,21 +81,11 @@ exports[`SpacesGridPage renders as expected 1`] = `
               Object {
                 "actions": Array [
                   Object {
-                    "color": "primary",
-                    "description": "Edit this space.",
-                    "icon": "pencil",
-                    "name": "Edit",
-                    "onClick": [Function],
-                    "type": "icon",
+                    "render": [Function],
                   },
                   Object {
                     "available": [Function],
-                    "color": "danger",
-                    "description": "Delete this space.",
-                    "icon": "trash",
-                    "name": "Delete",
-                    "onClick": [Function],
-                    "type": "icon",
+                    "render": [Function],
                   },
                 ],
                 "name": "Actions",
@@ -136,6 +126,7 @@ exports[`SpacesGridPage renders as expected 1`] = `
 exports[`SpacesGridPage renders the list of spaces 1`] = `
 Array [
   <Component
+    announceSpaceName={true}
     size="s"
     space={
       Object {
@@ -176,6 +167,7 @@ Array [
     </EuiAvatar>
   </Component>,
   <Component
+    announceSpaceName={true}
     size="s"
     space={
       Object {
@@ -215,6 +207,7 @@ Array [
     </EuiAvatar>
   </Component>,
   <Component
+    announceSpaceName={true}
     size="s"
     space={
       Object {
