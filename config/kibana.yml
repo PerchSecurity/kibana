@@ -113,3 +113,7 @@ xpack.security.enabled: false
 #xpack.security.encryptionKey: 'password123-fdjalkfeooiwqenfio2791231onu0o1801i0ndi1n20d821h0128hd102g97g1200'
 console.enabled: false
 timelion.enabled: false
+
+# Disable index management & the "add data" guide
+# https://github.com/elastic/kibana/issues/21911
+index_management.enabled: false
