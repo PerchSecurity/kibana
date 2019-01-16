@@ -26,9 +26,7 @@ import { createAdminCluster } from './lib/create_admin_cluster';
 import { clientLogger } from './lib/client_logger';
 import { createClusters } from './lib/create_clusters';
 import filterHeaders from './lib/filter_headers';
-
-//import createProxy from './lib/create_proxy';
-import { createProxy, createPath, proxyHandler } from './lib/perch_create_proxy';
+import { createProxy, proxyHandler } from './lib/perch_create_proxy';
 
 const DEFAULT_REQUEST_HEADERS = [ 'authorization' ];
 
