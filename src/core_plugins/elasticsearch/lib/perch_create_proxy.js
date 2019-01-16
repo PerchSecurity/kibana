@@ -1,3 +1,4 @@
+/* eslint-disable @kbn/license-header/require-license-header */
 /*
 This file is a custom perch security written replacement for create_proxy.js.
 It was created because there was no way to monkey patch create_proxy and hook into the ES request to set the user's allowed companies for all requests.
@@ -5,7 +6,6 @@ It is mostly a mashup of these two files:
 https://github.com/elastic/kibana/blob/5.4/src/core_plugins/elasticsearch/lib/create_proxy.js
 https://github.com/hapijs/h2o2/blob/master/lib/index.js
 */
-import createAgent from './create_agent';
 import mapUri from './map_uri';
 import Wreck from 'wreck';
 import Hoek from 'hoek';
@@ -16,20 +16,6 @@ export function createProxy(server, method, path, config) {
   const proxies = new Map([
     ['/elasticsearch', server.plugins.elasticsearch.getCluster('data')],
   ]);
-
-  const responseHandler = function (err, upstreamResponse, request, reply) {
-    if (err) {
-      reply(err);
-      return;
-    }
-
-    if (upstreamResponse.headers.location) {
-      // TODO: Workaround for #8705 until hapi has been updated to >= 15.0.0
-      upstreamResponse.headers.location = encodeURI(upstreamResponse.headers.location);
-    }
-
-    reply(null, upstreamResponse);
-  };
 
   for (const [proxyPrefix, cluster] of proxies) {
     const options = {

@@ -277,6 +277,65 @@
   dependencies:
     url-pattern "^1.0.3"
 
+"@sentry/core@4.5.1":
+  version "4.5.1"
+  resolved "https://registry.yarnpkg.com/@sentry/core/-/core-4.5.1.tgz#bfc98a276974a670e25ca5873ba7ac078bf5410d"
+  integrity sha512-ml4Z1PZ7GjsJip5vYkRMkqCLpK5u3jxUYtECOWVsYHIHgVlvERV+HWCdyH0PoiEwr97ZU+4mjnc9Av8P7a18Mw==
+  dependencies:
+    "@sentry/hub" "4.5.1"
+    "@sentry/minimal" "4.5.1"
+    "@sentry/types" "4.5.0"
+    "@sentry/utils" "4.5.1"
+    tslib "^1.9.3"
+
+"@sentry/hub@4.5.1":
+  version "4.5.1"
+  resolved "https://registry.yarnpkg.com/@sentry/hub/-/hub-4.5.1.tgz#979c0a826a9abfa567516b0da0e6f4017130def9"
+  integrity sha512-msftpMDSvWaENdYMHX8GPBQ5jTLxClWCprtAlE0AFZ90WHFrwvA0bHpGLzseFDjYwGUKoG2psxejoSstoBy53A==
+  dependencies:
+    "@sentry/types" "4.5.0"
+    "@sentry/utils" "4.5.1"
+    tslib "^1.9.3"
+
+"@sentry/minimal@4.5.1":
+  version "4.5.1"
+  resolved "https://registry.yarnpkg.com/@sentry/minimal/-/minimal-4.5.1.tgz#a6128aab2a3967d8eb99afb3029057e1b4d9aaa5"
+  integrity sha512-/PaBrzuGkL6c137KRz5iIpmIfCj1FY/rYOffBAYrZADmmZyVrHfP2cNreneze+9OYy5dCFylBFEQpNOCMDdARw==
+  dependencies:
+    "@sentry/hub" "4.5.1"
+    "@sentry/types" "4.5.0"
+    tslib "^1.9.3"
+
+"@sentry/node@4.5.1":
+  version "4.5.1"
+  resolved "https://registry.yarnpkg.com/@sentry/node/-/node-4.5.1.tgz#e8218b952695548d276274d2b6cc4f9d0676e063"
+  integrity sha512-qClDjSvRAAKnXkww5uiXQ+TySHjdmjr3c/scp4QxvjR9tNhYhdfimwdr4ZM6K9jhvK35vKVruuTVFzzSDukWHw==
+  dependencies:
+    "@sentry/core" "4.5.1"
+    "@sentry/hub" "4.5.1"
+    "@sentry/types" "4.5.0"
+    "@sentry/utils" "4.5.1"
+    "@types/stack-trace" "0.0.29"
+    cookie "0.3.1"
+    https-proxy-agent "2.2.1"
+    lru_map "0.3.3"
+    lsmod "1.0.0"
+    stack-trace "0.0.10"
+    tslib "^1.9.3"
+
+"@sentry/types@4.5.0":
+  version "4.5.0"
+  resolved "https://registry.yarnpkg.com/@sentry/types/-/types-4.5.0.tgz#59e2a27d48b01b44e8959aa5c8a30514fe1086a9"
+  integrity sha512-IstPjFoebQGrQWdM732D/+S0BTovmDgezyplk4kLEb87+/B+YK0hlhziUa7B2byTFJGgQQKXy7h2sKZBrA3GUA==
+
+"@sentry/utils@4.5.1":
+  version "4.5.1"
+  resolved "https://registry.yarnpkg.com/@sentry/utils/-/utils-4.5.1.tgz#23f8a8fbe84e06d2546d3f1a72e30b34cbc2a3d8"
+  integrity sha512-ihzvgKBuvHBjKtbjz3EtuTW0OAJH5nw1L3tNVOCi+fbEdp10DiyL0i3hQKdE87CLoNEAt/SPRmTrG1cP2dNa7Q==
+  dependencies:
+    "@sentry/types" "4.5.0"
+    tslib "^1.9.3"
+
 "@sindresorhus/is@^0.7.0":
   version "0.7.0"
   resolved "https://registry.yarnpkg.com/@sindresorhus/is/-/is-0.7.0.tgz#9a06f4f137ee84d7df0460c1fdb1135ffa6c50fd"
@@ -993,6 +1052,11 @@
   version "5.0.1"
   resolved "https://registry.yarnpkg.com/@types/sinon/-/sinon-5.0.1.tgz#a15b36ec42f1f53166617491feabd1734cb03e21"
   integrity sha512-yxzBCIjE3lp9lYjfBbIK/LRCoXgCLLbIIBIje7eNCcUIIR2CZZtyX5uto2hVoMSMqLrsRrT6mwwUEd0yFgOwpA==
+
+"@types/stack-trace@0.0.29":
+  version "0.0.29"
+  resolved "https://registry.yarnpkg.com/@types/stack-trace/-/stack-trace-0.0.29.tgz#eb7a7c60098edb35630ed900742a5ecb20cfcb4d"
+  integrity sha512-TgfOX+mGY/NyNxJLIbDWrO9DjGoVSW9+aB8H2yy1fy32jsvxijhmyJI9fDFgvz3YP4lvJaq9DzdR/M1bOgVc9g==
 
 "@types/strip-ansi@^3.0.0":
   version "3.0.0"
@@ -10832,6 +10896,16 @@ lru-cache@^4.1.1:
     pseudomap "^1.0.2"
     yallist "^2.1.2"
 
+lru_map@0.3.3:
+  version "0.3.3"
+  resolved "https://registry.yarnpkg.com/lru_map/-/lru_map-0.3.3.tgz#b5c8351b9464cbd750335a79650a0ec0e56118dd"
+  integrity sha1-tcg1G5Rky9dQM1p5ZQoOwOVhGN0=
+
+lsmod@1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/lsmod/-/lsmod-1.0.0.tgz#9a00f76dca36eb23fa05350afe1b585d4299e64b"
+  integrity sha1-mgD3bco26yP6BTUK/htYXUKZ5ks=
+
 lz-string@^1.4.4:
   version "1.4.4"
   resolved "https://registry.yarnpkg.com/lz-string/-/lz-string-1.4.4.tgz#c0d8eaf36059f705796e1e344811cf4c498d3a26"
@@ -15411,6 +15485,11 @@ ssri@^5.2.4:
   integrity sha512-XRSIPqLij52MtgoQavH/x/dU1qVKtWUAAZeOHsR9c2Ddi4XerFy3mc1alf+dLJKl9EUIm/Ht+EowFkTUOA6GAQ==
   dependencies:
     safe-buffer "^5.1.1"
+
+stack-trace@0.0.10:
+  version "0.0.10"
+  resolved "https://registry.yarnpkg.com/stack-trace/-/stack-trace-0.0.10.tgz#547c70b347e8d32b4e108ea1a2a159e5fdde19c0"
+  integrity sha1-VHxws0fo0ytOEI6hoqFZ5f3eGcA=
 
 stack-utils@^1.0.1:
   version "1.0.1"
