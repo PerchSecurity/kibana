@@ -21,6 +21,7 @@ import _ from 'lodash';
 import { pkg } from '../utils';
 import Command from './command';
 import serveCommand from './serve/serve';
+import wrapKibanaCli from './perch';
 
 const argv = process.env.kbnWorkerArgv ? JSON.parse(process.env.kbnWorkerArgv) : process.argv.slice();
 const program = new Command('bin/kibana');
@@ -61,4 +62,6 @@ if (!subCommand) {
   }
 }
 
-program.parse(argv);
+wrapKibanaCli(program).then(() => {
+  program.parse(argv);
+});
