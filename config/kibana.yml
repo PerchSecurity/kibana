@@ -110,7 +110,7 @@ xpack.monitoring.enabled: false
 xpack.reporting.enabled: true
 # encryptionKey prevents pending reports from failing on a Kibana restart.
 # Kibana nodes in a cluster must have the same reporting encryptionKey.
-xpack.reporting.encryptionKey: "-(F(DB{?Q\OMKw5INgb\F([VhAPSM"
+xpack.reporting.encryptionKey: "McJgJRUQmsYSDzrZqwKk202eA66rUa"
 # reporting timeout default 120s
 xpack.reporting.queue.timeout: 120000
 # 10MB default csv reporting size
