@@ -68,18 +68,12 @@ export class ToastsStartContract {
   }
 
   public addWarning(toastOrTitle: ToastInput) {
-    return this.add({
-      color: 'warning',
-      iconType: 'help',
-      ...normalizeToast(toastOrTitle),
-    });
+    // Removed warning toasts per https://github.com/usePF/perchweb/issues/2031
+    return;
   }
 
   public addDanger(toastOrTitle: ToastInput) {
-    return this.add({
-      color: 'danger',
-      iconType: 'alert',
-      ...normalizeToast(toastOrTitle),
-    });
+    // Removed error toasts per https://github.com/usePF/perchweb/issues/2031
+    return;
   }
 }
