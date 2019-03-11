@@ -63,7 +63,7 @@ server.ssl.enabled: false
 
 # Time in milliseconds to wait for responses from the back end or Elasticsearch. This value
 # must be a positive integer.
-elasticsearch.requestTimeout: 60000
+elasticsearch.requestTimeout: 120000
 
 # List of Kibana client-side headers to send to Elasticsearch. To send *no* client-side
 # headers, set this value to [] (an empty list).
@@ -74,7 +74,7 @@ elasticsearch.requestHeadersWhitelist: [ 'Authorization' ]
 #elasticsearch.customHeaders: {}
 
 # Time in milliseconds for Elasticsearch to wait for responses from shards. Set to 0 to disable.
-#elasticsearch.shardTimeout: 0
+elasticsearch.shardTimeout: 120000
 
 # Time in milliseconds to wait for Elasticsearch at Kibana startup before retrying.
 #elasticsearch.startupTimeout: 5000
