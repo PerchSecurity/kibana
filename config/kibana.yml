@@ -105,7 +105,9 @@ logging.verbose: true
 
 # Reporting
 xpack.reporting.enabled: true
-xpack.reporting.encryptionKey: 'abc123'
+xpack.reporting.encryptionKey: "fjklqwe0inqi320n1nv34u0t3"
+xpack.reporting.index: ".reporting-perchybana"
+
 xpack.reporting.csv.maxSizeBytes: 1000000000 #Default is 10MB
 
 
