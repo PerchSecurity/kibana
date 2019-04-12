@@ -6,7 +6,7 @@
 
 import boom from 'boom';
 import { API_BASE_URL } from '../../common/constants';
-import { jobsQueryFactory } from '../lib/jobs_query';
+import { jobsQueryFactory } from '../lib/perch_jobs_query';
 import { reportingFeaturePreRoutingFactory } from'../lib/reporting_feature_pre_routing';
 import { authorizedUserPreRoutingFactory } from '../lib/authorized_user_pre_routing';
 import { jobResponseHandlerFactory } from '../lib/job_response_handler';

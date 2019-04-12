@@ -21,7 +21,7 @@ import { logConfiguration } from './log_configuration';
 import { getReportingUsageCollector } from './server/usage';
 
 /* BEGIN PERCH CODE */
-import { jobsQueryFactory } from "./server/lib/jobs_query";
+import { JobsQuery } from "./server/lib/perch_jobs_query";
 /* END PERCH CODE */
 
 const kbToBase64Length = (kb) => {
@@ -170,7 +170,7 @@ export const reporting = (kibana) => {
       server.expose('queue', createQueueFactory(server));
 
       /* BEGIN PERCH CODE */
-      server.expose('jobsQueryFactory', jobsQueryFactory);
+      server.expose('JobsQuery', JobsQuery);
       /* END PERCH CODE */
 
       // Reporting routes
