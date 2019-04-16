@@ -21,10 +21,6 @@ EnqueueJob.prototype.getJobQueue = function (index) {
     q = Object.create(q);
     q.index = index;
   }
-  console.log('AFTER');
-  console.log(q.addJob);
-  console.log('REPORTING QUEUE AFTER');
-  console.log(this.server.plugins.reporting.queue.index);
   return q;
 };
 
