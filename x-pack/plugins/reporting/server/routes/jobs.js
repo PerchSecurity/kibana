@@ -40,7 +40,9 @@ export function jobs(server) {
       const size = Math.min(100, parseInt(request.query.size) || 10);
       const jobIds = request.query.ids ? request.query.ids.split(',') : null;
 
+      /* BEGIN PERCH CODE */
       const results = jobsQuery.list(request, request.pre.management.jobTypes, request.pre.user, page, size, jobIds);
+      /* END PERCH CODE */
       reply(results);
     },
     config: getRouteConfig(),
@@ -51,7 +53,9 @@ export function jobs(server) {
     path: `${mainEntry}/count`,
     method: 'GET',
     handler: (request, reply) => {
+      /* BEGIN PERCH CODE */
       const results = jobsQuery.count(request, request.pre.management.jobTypes, request.pre.user);
+      /* END PERCH CODE */
       reply(results);
     },
     config: getRouteConfig(),
@@ -64,7 +68,9 @@ export function jobs(server) {
     handler: (request, reply) => {
       const { docId } = request.params;
 
+      /* BEGIN PERCH CODE */
       jobsQuery.get(request, request.pre.user, docId, { includeContent: true })
+      /* END PERCH CODE */
         .then((doc) => {
           if (!doc) {
             return reply(boom.notFound());
