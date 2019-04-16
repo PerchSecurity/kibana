@@ -14,18 +14,11 @@ function enqueueJobFn(server) {
   const exportTypesRegistry = server.plugins.reporting.exportTypesRegistry;
 
   return async function enqueueJob(exportTypeId, jobParams, user, headers, request) {
-    server.plugins.reporting.queue.index = '.reporthing-hackyhack';
-    console.log('CREATE JOB');
-    console.log(server.options);
-    console.log('PLUGIN');
-    console.log(server.plugins.reporting);
     const exportType = exportTypesRegistry.getById(exportTypeId);
     const createJob = exportType.createJobFactory(server);
 
     const payload = await createJob(jobParams, headers, request);
 
-    console.log('PAYLOAD');
-    console.log(payload);
     const options = {
       timeout: queueConfig.timeout,
       created_by: get(user, 'username', false),

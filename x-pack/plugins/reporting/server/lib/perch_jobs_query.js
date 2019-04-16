@@ -11,14 +11,15 @@ import { oncePerServer } from './once_per_server';
 const defaultSize = 10;
 
 function JobsQuery(server) {
-  //const index = server.plugins.reporting.queue.index || server.config().get('xpack.reporting.index');
   const { callWithInternalUser, errors: esErrors } = server.plugins.elasticsearch.getCluster('admin');
-
+  this.index = server.plugins.reporting.queue.index;
   this.getUsername = (user) => {
     return get(user, 'username', false);
   };
 
-  this.execQuery = (type, body) => {
+  this.execQuery = (type, body, userReportingIndex = null) => {
+    const index = userReportingIndex || this.index;
+
     const defaultBody = {
       search: {
         _source: {
@@ -32,7 +33,7 @@ function JobsQuery(server) {
     };
 
     const query = {
-      index: `${server.plugins.reporting.queue.index}-*`,
+      index: `${index}-*`,
       type: QUEUE_DOCTYPE,
       body: Object.assign(defaultBody[type] || {}, body)
     };
@@ -53,7 +54,7 @@ function JobsQuery(server) {
 }
 
 
-JobsQuery.prototype.list = function (jobTypes, user, page = 0, size = defaultSize, jobIds) {
+JobsQuery.prototype.list = function (headers, jobTypes, user, page = 0, size = defaultSize, jobIds, userReportingIndex = null) {
   const username = this.getUsername(user);
 
   const body = {
@@ -79,10 +80,10 @@ JobsQuery.prototype.list = function (jobTypes, user, page = 0, size = defaultSiz
     });
   }
 
-  return this.getHits(this.execQuery('search', body));
+  return this.getHits(this.execQuery('search', body, userReportingIndex));
 };
 
-JobsQuery.prototype.count = function (jobTypes, user) {
+JobsQuery.prototype.count = function (headers, jobTypes, user, userReportingIndex = null) {
   const username = this.getUsername(user);
 
   const body = {
@@ -100,14 +101,14 @@ JobsQuery.prototype.count = function (jobTypes, user) {
     }
   };
 
-  return this.execQuery('count', body)
+  return this.execQuery('count', body, userReportingIndex)
     .then((doc) => {
       if (!doc) return 0;
       return doc.count;
     });
 };
 
-JobsQuery.prototype.get = function (user, id, opts = {}) {
+JobsQuery.prototype.get = function (headers, user, id, opts = {}, userReportingIndex = null) {
   if (!id) return Promise.resolve();
 
   const username = this.getUsername(user);
@@ -134,7 +135,7 @@ JobsQuery.prototype.get = function (user, id, opts = {}) {
     };
   }
 
-  return this.getHits(this.execQuery('search', body))
+  return this.getHits(this.execQuery('search', body, userReportingIndex))
     .then((hits) => {
       if (hits.length !== 1) return;
       return hits[0];
