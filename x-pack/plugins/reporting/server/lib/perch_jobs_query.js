@@ -35,7 +35,7 @@ function JobsQuery(server) {
     const query = {
       index: `${index}-*`,
       type: QUEUE_DOCTYPE,
-      body: Object.assign(defaultBody[type] || {}, body)
+      body: { ...defaultBody[type], ...body }
     };
 
     return callWithInternalUser(type, query)
@@ -47,9 +47,7 @@ function JobsQuery(server) {
       });
   };
 
-  this.getHits = (query) => {
-    return query.then((res) => get(res, 'hits.hits', []));
-  };
+  this.getHits = (query) => query.then((res) => get(res, 'hits.hits', []));
 
 }
 
@@ -102,10 +100,7 @@ JobsQuery.prototype.count = function (headers, jobTypes, user, userReportingInde
   };
 
   return this.execQuery('count', body, userReportingIndex)
-    .then((doc) => {
-      if (!doc) return 0;
-      return doc.count;
-    });
+    .then(doc => doc ? doc.count : 0);
 };
 
 JobsQuery.prototype.get = function (headers, user, id, opts = {}, userReportingIndex = null) {
@@ -136,10 +131,7 @@ JobsQuery.prototype.get = function (headers, user, id, opts = {}, userReportingI
   }
 
   return this.getHits(this.execQuery('search', body, userReportingIndex))
-    .then((hits) => {
-      if (hits.length !== 1) return;
-      return hits[0];
-    });
+    .then(hits => hits.length === 1 ? hits[0] : undefined);
 };
 
 const jobsQueryFactory = oncePerServer(server => new JobsQuery(server));
