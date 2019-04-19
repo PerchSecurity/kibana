@@ -6,7 +6,7 @@
 
 import boom from 'boom';
 import { API_BASE_URL } from '../../common/constants';
-import { enqueueJobFactory } from '../lib/enqueue_job';
+import { enqueueJobFactory } from '../lib/perch_enqueue_job';
 import { reportingFeaturePreRoutingFactory } from '../lib/reporting_feature_pre_routing';
 import { authorizedUserPreRoutingFactory } from '../lib/authorized_user_pre_routing';
 import rison from 'rison-node';
@@ -112,7 +112,11 @@ export function main(server) {
     const user = request.pre.user;
     const headers = request.headers;
 
+    /* BEGIN PERCH CODE
     const job = await enqueueJob(exportTypeId, jobParams, user, headers, request);
+    */
+    const job = await enqueueJob.job(exportTypeId, jobParams, user, headers, request);
+    /* END PERCH CODE */
 
     // return the queue's job information
     const jobJson = job.toJSON();
