@@ -6,7 +6,7 @@
 
 import boom from 'boom';
 import { API_BASE_URL } from '../../common/constants';
-import { jobsQueryFactory } from '../lib/perch_jobs_query';
+import { jobsQueryFactory } from '../lib/jobs_query';
 import { reportingFeaturePreRoutingFactory } from'../lib/reporting_feature_pre_routing';
 import { authorizedUserPreRoutingFactory } from '../lib/authorized_user_pre_routing';
 import { jobResponseHandlerFactory } from '../lib/job_response_handler';
@@ -40,9 +40,7 @@ export function jobs(server) {
       const size = Math.min(100, parseInt(request.query.size) || 10);
       const jobIds = request.query.ids ? request.query.ids.split(',') : null;
 
-      /* BEGIN PERCH CODE */
-      const results = jobsQuery.list(request, request.pre.management.jobTypes, request.pre.user, page, size, jobIds);
-      /* END PERCH CODE */
+      const results = jobsQuery.list(request.pre.management.jobTypes, request.pre.user, page, size, jobIds);
       reply(results);
     },
     config: getRouteConfig(),
@@ -53,9 +51,7 @@ export function jobs(server) {
     path: `${mainEntry}/count`,
     method: 'GET',
     handler: (request, reply) => {
-      /* BEGIN PERCH CODE */
-      const results = jobsQuery.count(request, request.pre.management.jobTypes, request.pre.user);
-      /* END PERCH CODE */
+      const results = jobsQuery.count(request.pre.management.jobTypes, request.pre.user);
       reply(results);
     },
     config: getRouteConfig(),
@@ -68,9 +64,7 @@ export function jobs(server) {
     handler: (request, reply) => {
       const { docId } = request.params;
 
-      /* BEGIN PERCH CODE */
-      jobsQuery.get(request, request.pre.user, docId, { includeContent: true })
-      /* END PERCH CODE */
+      jobsQuery.get(request.pre.user, docId, { includeContent: true })
         .then((doc) => {
           if (!doc) {
             return reply(boom.notFound());

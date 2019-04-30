@@ -103,18 +103,11 @@ logging.verbose: true
 # translations.
 #i18n.defaultLocale: "en"
 
-# Reporting
-xpack.reporting.enabled: true
-xpack.reporting.encryptionKey: "fjklqwe0inqi320n1nv34u0t3"
-xpack.reporting.index: ".reporting-perchybana"
-
-xpack.reporting.csv.maxSizeBytes: 1000000000 #Default is 10MB
-
-
 xpack.beats.enabled: false
 xpack.graph.enabled: false
 xpack.ml.enabled: false
 xpack.monitoring.enabled: false
+xpack.reporting.enabled: false
 xpack.watcher.enabled: false
 xpack.security.enabled: false
 #xpack.telemetry.enabled: false
@@ -122,4 +115,3 @@ console.enabled: false
 timelion.enabled: false
 index_management.enabled: false
 license_management.enabled: false
-
