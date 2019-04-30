@@ -20,11 +20,6 @@ import { logConfiguration } from './log_configuration';
 
 import { getReportingUsageCollector } from './server/usage';
 
-/* BEGIN PERCH CODE */
-import { JobsQuery } from './server/lib/perch_jobs_query';
-import { EnqueueJob } from './server/lib/perch_enqueue_job';
-/* END PERCH CODE */
-
 const kbToBase64Length = (kb) => {
   return Math.floor((kb * 1024 * 8) / 6);
 };
@@ -169,11 +164,6 @@ export const reporting = (kibana) => {
 
       server.expose('browserDriverFactory', await createBrowserDriverFactory(server));
       server.expose('queue', createQueueFactory(server));
-
-      /* BEGIN PERCH CODE */
-      server.expose('JobsQuery', JobsQuery);
-      server.expose('EnqueueJob', EnqueueJob);
-      /* END PERCH CODE */
 
       // Reporting routes
       mainRoutes(server);

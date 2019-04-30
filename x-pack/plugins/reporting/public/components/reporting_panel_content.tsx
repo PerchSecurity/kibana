@@ -162,7 +162,7 @@ export class ReportingPanelContent extends Component<Props, State> {
       .then(() => {
         toastNotifications.addSuccess({
           title: `Queued report for ${this.props.objectType}`,
-          text: 'Track its progress in Reports',
+          text: 'Track its progress in Management',
           'data-test-subj': 'queueReportSuccess',
         });
         this.props.onClose();
