@@ -17,6 +17,8 @@ server.host: "0.0.0.0"
 # The Kibana server's name.  This is used for display purposes.
 #server.name: "your-hostname"
 
+server.cors.origin: ["*"]
+
 # The URL of the Elasticsearch instance to use for all your queries.
 elasticsearch.url: "http://host.docker.internal:9201"
 
@@ -105,7 +107,7 @@ logging.verbose: true
 #i18n.defaultLocale: "en"
 xpack.security.enabled: true
 xpack.security.encryptionKey: "something_at_least_32_characters"
-#xpack.security.authProviders: [token]
+xpack.security.authProviders: [basic]
 xpack.reporting.enabled: true
 
 xpack.beats.enabled: false
