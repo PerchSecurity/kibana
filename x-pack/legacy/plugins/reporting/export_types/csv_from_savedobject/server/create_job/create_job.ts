@@ -95,6 +95,7 @@ export const createJobFactory: CreateJobFactory<ImmediateCreateJobFn<
     return {
       headers: serializedEncryptedHeaders,
       jobParams: { ...jobParams, panel, visType },
+      basePath: req.getBasePath(),
       type: null,
       title,
     };
