@@ -103,7 +103,11 @@ export type EnqueueJobFn = <JobParamsType>(
   request: RequestFacade
 ) => Promise<Job>;
 
-export type RequestFacade = ReportingRequest & Legacy.Request;
+export type RequestFacade = ReportingRequest &
+  Legacy.Request & {
+    route: any;
+    raw: any;
+  };
 
 export type ResponseFacade = ResponseObject & {
   isBoom: boolean;
