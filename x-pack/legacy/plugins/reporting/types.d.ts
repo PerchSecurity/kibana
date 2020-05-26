@@ -78,10 +78,13 @@ export interface RequestFacade {
   getSavedObjectsClient: Legacy.Request['getSavedObjectsClient'];
   headers: Legacy.Request['headers'];
   params: Legacy.Request['params'];
+  path: any;
   payload: JobParamPostPayload | GenerateExportTypePayload;
   query: ReportingRequestQuery;
   route: Legacy.Request['route'];
   pre: ReportingRequestPre;
+  raw: any;
+  url: any;
   getRawRequest: () => Legacy.Request;
 }
 

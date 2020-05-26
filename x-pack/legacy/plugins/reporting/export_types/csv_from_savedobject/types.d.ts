@@ -26,6 +26,7 @@ export interface JobParamsPanelCsv {
 
 export interface JobDocPayloadPanelCsv extends JobDocPayload<JobParamsPanelCsv> {
   jobParams: JobParamsPanelCsv;
+  basePath?: string;
 }
 
 export interface SavedObjectServiceError {

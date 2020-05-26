@@ -11,6 +11,7 @@ import { ReportingCore } from '../../../server';
 import { cryptoFactory } from '../../../server/lib';
 import {
   ExecuteJobFactory,
+  ESQueueWorkerExecuteFn,
   ImmediateExecuteFn,
   JobDocOutput,
   Logger,
@@ -21,17 +22,19 @@ import { CsvResultFromSearch } from '../../csv/types';
 import { FakeRequest, JobDocPayloadPanelCsv, JobParamsPanelCsv, SearchPanel } from '../types';
 import { createGenerateCsv } from './lib';
 
-export const executeJobFactory: ExecuteJobFactory<ImmediateExecuteFn<
-  JobParamsPanelCsv
->> = async function executeJobFactoryFn(
+export const executeJobFactory: ExecuteJobFactory<
+  ImmediateExecuteFn<JobParamsPanelCsv> | ESQueueWorkerExecuteFn<JobDocPayloadPanelCsv>
+> = async function executeJobFactoryFn(
   reporting: ReportingCore,
   server: ServerFacade,
   elasticsearch: ElasticsearchServiceSetup,
   parentLogger: Logger
 ) {
+  const config = server.config();
   const crypto = cryptoFactory(server);
   const logger = parentLogger.clone([CSV_FROM_SAVEDOBJECT_JOB_TYPE, 'execute-job']);
   const generateCsv = createGenerateCsv(reporting, server, elasticsearch, parentLogger);
+  const serverBasePath = config.get('server.basePath') as string;
 
   return async function executeJob(
     jobId: string | null,
@@ -43,7 +46,7 @@ export const executeJobFactory: ExecuteJobFactory<ImmediateExecuteFn<
     // Use the jobID as a logging tag or "immediate"
     const jobLogger = logger.clone([jobId === null ? 'immediate' : jobId]);
 
-    const { jobParams } = job;
+    const { jobParams, basePath } = job;
     const { isImmediate, panel, visType } = jobParams as JobParamsPanelCsv & { panel: SearchPanel };
 
     if (!panel) {
@@ -80,8 +83,23 @@ export const executeJobFactory: ExecuteJobFactory<ImmediateExecuteFn<
       }
 
       requestObject = {
-        headers: decryptedHeaders,
         server,
+        headers: decryptedHeaders,
+        // This is used by the spaces SavedObjectClientWrapper to determine the existing space.
+        // We use the basePath from the saved job, which we'll have post spaces being implemented;
+        // or we use the server base path, which uses the default space
+        getBasePath: () => basePath || serverBasePath,
+        path: '/',
+        route: { settings: {} },
+        url: {
+          href: '/',
+        },
+        raw: {
+          req: {
+            url: '/',
+          },
+        },
+        getRawRequest: () => requestObject,
       };
     }
 

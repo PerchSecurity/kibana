@@ -25,7 +25,7 @@ export function makeRequestFacade(request: Legacy.Request): RequestFacade {
     payload: (request.payload as object) as ReportingRequestPayload,
     query: ((request.query as RequestQuery) as object) as ReportingRequestQuery,
     pre: (request.pre as Record<string, any>) as ReportingRequestPre,
-    getBasePath: request.getBasePath,
+    getBasePath: request.getBasePath.bind(request),
     route: request.route,
     getRawRequest: () => request,
   };

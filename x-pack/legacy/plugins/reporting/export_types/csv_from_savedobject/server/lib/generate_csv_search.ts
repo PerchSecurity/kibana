@@ -68,9 +68,9 @@ export async function generateCsvSearch(
   searchPanel: SearchPanel,
   jobParams: JobParamsDiscoverCsv
 ): Promise<CsvResultFromSearch> {
-  const savedObjectsClient = await reporting.getSavedObjectsClient(
-    KibanaRequest.from(req.getRawRequest())
-  );
+  const kibanaRequest = KibanaRequest.from(req.getRawRequest());
+  kibanaRequest.getBasePath = req.getBasePath;
+  const savedObjectsClient = await reporting.getSavedObjectsClient(kibanaRequest);
   const { indexPatternSavedObjectId, timerange } = searchPanel;
   const savedSearchObjectAttr = searchPanel.attributes as SavedSearchObjectAttributes;
   const { indexPatternSavedObject } = await getDataSource(
